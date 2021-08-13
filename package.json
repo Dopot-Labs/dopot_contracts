@@ -29,10 +29,12 @@
     "hardhat-gas-reporter": "^1.0.4"
   },
   "dependencies": {
+    "@nomiclabs/hardhat-etherscan": "^2.1.4",
     "@openzeppelin/contracts": "^4.2.0",
     "@openzeppelin/contracts-upgradeable": "^4.2.0",
     "@openzeppelin/test-helpers": "^0.5.12",
     "chai-as-promised": "^7.1.1",
-    "chai-bignumber": "^3.0.0"
+    "chai-bignumber": "^3.0.0",
+    "dotenv": "^10.0.0"
   }
 }

@@ -2,6 +2,10 @@
 require("@nomiclabs/hardhat-ethers");
 require('@openzeppelin/hardhat-upgrades');
 require("hardhat-gas-reporter");
+require("@nomiclabs/hardhat-etherscan");
+require('dotenv').config()
+
+const etherscanAPIkey = process.env.polygonscanAPIkey;
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -16,5 +20,8 @@ module.exports = {
   optimizer: {
     enabled: true,
     runs: 1 
-  }
+  },
+  etherscan: {
+    apiKey: etherscanAPIkey  
+  },
 };
