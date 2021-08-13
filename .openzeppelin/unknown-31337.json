@@ -7,7 +7,11 @@
       "hash": "0xa22e0353aca806bcadb1bc1e34dca681299d494689643efc414c2370ac21769b",
       "type": 0,
       "accessList": null,
+<<<<<<< HEAD
       "blockHash": "0xd7ccc71118a66cf2367ded8a186f9828d68bd336e658c7489c28236ec206bf91",
+=======
+      "blockHash": "0xb2071c4a23362ad9a2e1caf47fdf21889735380e79207edf69d330cad5170511",
+>>>>>>> a7744f8d5b60afaf5f5485239fe8aaf3b847e0ef
       "blockNumber": 2,
       "transactionIndex": 0,
       "confirmations": 1,
@@ -160,7 +164,7 @@
           {
             "contract": "ERC20PermitUpgradeable",
             "label": "_nonces",
-            "type": "t_mapping(t_address,t_struct(Counter)2816_storage)",
+            "type": "t_mapping(t_address,t_struct(Counter)2941_storage)",
             "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\extensions\\draft-ERC20PermitUpgradeable.sol:25"
           },
           {
@@ -184,13 +188,13 @@
           {
             "contract": "ERC20VotesUpgradeable",
             "label": "_checkpoints",
-            "type": "t_mapping(t_address,t_array(t_struct(Checkpoint)1629_storage)dyn_storage)",
+            "type": "t_mapping(t_address,t_array(t_struct(Checkpoint)1754_storage)dyn_storage)",
             "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\extensions\\ERC20VotesUpgradeable.sol:40"
           },
           {
             "contract": "ERC20VotesUpgradeable",
             "label": "_totalSupplyCheckpoints",
-            "type": "t_array(t_struct(Checkpoint)1629_storage)dyn_storage",
+            "type": "t_array(t_struct(Checkpoint)1754_storage)dyn_storage",
             "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC20\\extensions\\ERC20VotesUpgradeable.sol:41"
           },
           {
@@ -234,13 +238,13 @@
           "t_mapping(t_address,t_address)": {
             "label": "mapping(address => address)"
           },
-          "t_mapping(t_address,t_array(t_struct(Checkpoint)1629_storage)dyn_storage)": {
+          "t_mapping(t_address,t_array(t_struct(Checkpoint)1754_storage)dyn_storage)": {
             "label": "mapping(address => struct ERC20VotesUpgradeable.Checkpoint[])"
           },
-          "t_array(t_struct(Checkpoint)1629_storage)dyn_storage": {
+          "t_array(t_struct(Checkpoint)1754_storage)dyn_storage": {
             "label": "struct ERC20VotesUpgradeable.Checkpoint[]"
           },
-          "t_struct(Checkpoint)1629_storage": {
+          "t_struct(Checkpoint)1754_storage": {
             "label": "struct ERC20VotesUpgradeable.Checkpoint",
             "members": [
               {
@@ -262,10 +266,10 @@
           "t_array(t_uint256)47_storage": {
             "label": "uint256[47]"
           },
-          "t_mapping(t_address,t_struct(Counter)2816_storage)": {
+          "t_mapping(t_address,t_struct(Counter)2941_storage)": {
             "label": "mapping(address => struct CountersUpgradeable.Counter)"
           },
-          "t_struct(Counter)2816_storage": {
+          "t_struct(Counter)2941_storage": {
             "label": "struct CountersUpgradeable.Counter",
             "members": [
               {
