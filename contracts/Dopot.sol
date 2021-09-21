@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 contract Dopot is ERC20, Ownable, ERC20Permit, ERC20Votes  {
     
    constructor() ERC20("Dopot", "DPT") ERC20Permit("Dopot") {
-        _mint(msg.sender, 1000000 * 10 ** decimals());
+        _mint(msg.sender, 10000000 * 10 ** decimals());
     }
 
     function _afterTokenTransfer(address from, address to, uint256 amount)

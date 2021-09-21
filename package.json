@@ -33,8 +33,11 @@
     "@openzeppelin/contracts": "^4.2.0",
     "@openzeppelin/contracts-upgradeable": "^4.2.0",
     "@openzeppelin/test-helpers": "^0.5.12",
+    "bignumber.js": "^9.0.1",
+    "bn-chai": "^1.0.1",
     "chai-as-promised": "^7.1.1",
     "chai-bignumber": "^3.0.0",
-    "dotenv": "^10.0.0"
+    "dotenv": "^10.0.0",
+    "keccak256": "^1.0.3"
   }
 }

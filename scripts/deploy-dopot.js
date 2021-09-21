@@ -1,5 +1,6 @@
 const { ethers, upgrades } = require("hardhat");
-
+const web3 = require("web3");
+ 
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
@@ -8,7 +9,8 @@ async function main() {
   const Token = await ethers.getContractFactory("Dopot");
   const token = await Token.deploy();
   await token.deployed();
-  
+  const deployerBalance = await token.callStatic.balanceOf(deployer.address);
+  console.log("Deployer DPT balance: ", web3.utils.fromWei(deployerBalance._hex));
   console.log("Dopot deployed to:", token.address);
 }
 

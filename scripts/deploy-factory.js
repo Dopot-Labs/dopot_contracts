@@ -6,13 +6,10 @@ async function main() {
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
   const ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-  const projectfactory = await ProjectFactory.deploy("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", 12, 123, 1);
+  const projectfactory = await ProjectFactory.deploy("0x8A791620dd6260079BF849Dc5567aDC3F2FdC318");
   await projectfactory.deployed();
-
-  console.log("ProjectFactory deployed to:", project.address);
-  const project1 = await projectfactory.createProject();
-  const project2 = await projectfactory.createProject();
-
+  console.log("ProjectFactory deployed to:", projectfactory.address);
+  //project1.callStatic.functionName()
 }
 
 main()

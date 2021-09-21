@@ -1,12 +1,15 @@
+var web3 = require('web3');
 var chai = require('chai');
 var expect = chai.expect;
 const { ethers, upgrades } = require('hardhat');
-const web3 = require('web3');
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 chai.use(require('chai-bignumber')());
+var BN = require('bn.js');
+var bnChai = require('bn-chai');
+chai.use(bnChai(BN));
 
-describe("Dopot", async function () {
+describe("Dopot", async () => {
     let Token;
     let hardhatToken;
     let owner;
@@ -14,23 +17,23 @@ describe("Dopot", async function () {
     beforeEach(async function () {
       Token = await ethers.getContractFactory("Dopot");
       [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
-      hardhatToken = await upgrades.deployProxy(Token);
+      hardhatToken = await Token.deploy();
       await hardhatToken.deployed();
     });
 
-    describe("Deployment", async function () {
-      it("Should set the right ADMIN ROLE", async function () {
-        expect(hardhatToken.DEFAULT_ADMIN_ROLE() == owner.address);
+    describe("Deployment", async () => {
+      it("Should set the right owner", async function () {
+        expect(await hardhatToken.owner()).to.equal(owner.address);
       });
     
-      it('assigns the initial total supply to the creator', async function () {
+      it('assigns the initial total supply to the creator', async () => {
         var ownerBalance = await hardhatToken.balanceOf(owner.address);
 
         var totalSupply = await hardhatToken.totalSupply();
         expect(totalSupply == ownerBalance);
       })
     });
-    describe("Transactions", function () {
+    describe("Transactions", () => {
       it("Should transfer tokens between accounts", async function () {
         const amount = "0x" + (50).toString(16) 
         // Transfer 50 tokens from owner to addr1
@@ -59,29 +62,22 @@ describe("Dopot", async function () {
         );} catch (e) {console.dir(e)}
       });
       
-      it("Should update balances after transfers", async function () {try{
+      it("Should update balances after transfers", async () => {try{
         const initialOwnerBalance = await hardhatToken.balanceOf(owner.address);
-        // Transfer 100 tokens from owner to addr1.
-        await hardhatToken.transfer(addr1.address, 100);
-        // Transfer another 50 tokens from owner to addr2.
-        await hardhatToken.transfer(addr2.address, 50);
-        // Check balances.
+
+        const am1 = 142;
+        const am2 = 81;
+        await hardhatToken.transfer(addr1.address, am1);
+        await hardhatToken.transfer(addr2.address, am2);
+
         const finalOwnerBalance = await hardhatToken.balanceOf(owner.address);
-        expect(finalOwnerBalance._hex).to.equal("0x" + (BigInt(initialOwnerBalance._hex)-BigInt(150)).toString(16));
+        expect(parseInt(finalOwnerBalance._hex, 16)).to.equal(initialOwnerBalance - new BN(am1+am2));
   
         const addr1Balance = await hardhatToken.balanceOf(addr1.address);
-        expect(addr1Balance._hex).to.equal("0x"+ (100).toString(16));
+        expect(parseInt(addr1Balance._hex, 16)).to.equal(am1);
   
         const addr2Balance = await hardhatToken.balanceOf(addr2.address);
-        expect(addr2Balance._hex).to.equal("0x"+ (50).toString(16));} catch (e) {console.dir(e)}
+        expect(parseInt(addr2Balance._hex, 16)).to.equal(am2);} catch (e) {console.dir(e)}
       });
     })
-    /*
-    it('Upgrading', async function () {
-      const hardhatToken = await upgrades.deployProxy(Token, [42]);
-      assert.strictEqual(await hardhatToken.retrieve(), 42);
-    
-      await upgrades.upgradeProxy(hardhatToken.address, TokenV2);
-      assert.strictEqual(await hardhatToken.retrieve(), 42);
-    });*/
 });

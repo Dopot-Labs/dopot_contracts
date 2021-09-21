@@ -1,26 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
+import "hardhat/console.sol";
 import "./Project.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ProjectFactory {
+contract ProjectFactory is Ownable{
 
-    address immutable projectImplementation;
-    address payable admin;
+    address public immutable projectImplementation;
+    address payable public immutable admin;
+    //address immutable dptTokenContract;
+    address immutable fundingTokenContract;
 
-    constructor() {
+    constructor(address _fundingTokenContract/*, address _dptTokenContract*/) {
         projectImplementation = address(new Project());
-        admin = msg.sender;
+        admin = payable(msg.sender);
+        //dptTokenContract = _dptTokenContract;
+        fundingTokenContract = _fundingTokenContract;
     }
 
     event ProjectCreated(address creator, address project);
 
-    function createProject(uint memory fundRaisingDeadline, uint memory goalAmount, uint memory minimum)
-    external // limit to only approved users
-    returns (address) {
+    function createProject(uint fundRaisingDeadline, uint goalAmount, uint minimum) external returns (address) {
         address projectClone = Clones.clone(projectImplementation);
-        Project(projectClone).initialize(msg.sender, admin, fundRaisingDeadline, goalAmount, minimum);
+        Project(projectClone).initialize(payable(msg.sender), admin, fundRaisingDeadline, goalAmount, minimum, fundingTokenContract /*, tokenContract*/);
         emit ProjectCreated(msg.sender, projectClone);
         return projectClone;
     }
