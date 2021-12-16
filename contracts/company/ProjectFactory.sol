@@ -8,23 +8,37 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ProjectFactory is Ownable{
 
-    address public immutable projectImplementation;
     address payable public immutable admin;
+
+    address public projectImplementation;
+    uint public projectImplementationVersion;
+    
     //address immutable dptTokenContract;
     address immutable fundingTokenContract;
 
+    
+    mapping(address => uint) public projectsVersions;
+    event ProjectCreated(address creator, address project);
+
+    function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
+        projectImplementation = _projectImplementation;
+        projectImplementationVersion ++;
+    }
+
     constructor(address _fundingTokenContract/*, address _dptTokenContract*/) {
         projectImplementation = address(new Project());
+        projectImplementationVersion = 1;
+
         admin = payable(msg.sender);
         //dptTokenContract = _dptTokenContract;
         fundingTokenContract = _fundingTokenContract;
     }
 
-    event ProjectCreated(address creator, address project);
 
-    function createProject(uint fundRaisingDeadline, uint goalAmount, uint minimum) external returns (address) {
+    function createProject(uint fundRaisingDeadline, uint goalAmount) external returns (address) {
         address projectClone = Clones.clone(projectImplementation);
-        Project(projectClone).initialize(payable(msg.sender), admin, fundRaisingDeadline, goalAmount, minimum, fundingTokenContract /*, tokenContract*/);
+        Project(projectClone).initialize(payable(msg.sender), admin, fundRaisingDeadline, goalAmount, fundingTokenContract /*, tokenContract*/);
+        projectsVersions[projectClone] = projectImplementationVersion;
         emit ProjectCreated(msg.sender, projectClone);
         return projectClone;
     }

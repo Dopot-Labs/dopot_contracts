@@ -1,64 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
-
 import "hardhat/console.sol";
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IERC20 {
-    function balanceOf(address _addr) external view returns (uint256);
-}
-
-contract Project is Initializable, AccessControl {
+contract Project is Initializable, AccessControl, ReentrancyGuard {
     //bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");: 
     using SafeMath for uint256;
     using SafeMath for uint;
-    uint constant private projectWithdrawalFee = 3/100 * (10**18);
-    uint constant private projectDiscountedWithdrawalFee = 2/100 * (10**18);
+    //Needed only to interact with untrusted token contract
+    using SafeERC20 for IERC20;
+    uint constant public projectWithdrawalFee = 3/100 * 1e18;
+    uint constant public projectDiscountedWithdrawalFee = 2/100 * 1e18;
 
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
     bytes32 public constant REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
     address payable public reviewer;
     uint public fundGoalAmount;
     uint public fundRaisingDeadline;
-    uint public minimumContribution;
-    address private dptTokenContract;
+    //address private dptTokenContract;
     address private fundingTokenContract;
-    mapping (address => uint) public investments;
+    
     enum State {
         PendingApproval,
         Rejected,
         Ongoing,
         Successful,
-        Expired
+        Expired,
+        Cancelled
     }
     State public state;
+
+    struct rewardTier {
+        string name;
+        uint investment;
+    }
+    rewardTier[] public rewardTiers;
     
+    mapping (address => mapping (uint256 => uint)) investments;
 
     modifier isState(State _state){
         require(state == _state);
         _;
     }
-
-    modifier isCreator() {
-        require(hasRole(CREATOR_ROLE, msg.sender));
+    modifier isStateCancellable(){
+        require(state == State.PendingApproval || state == State.Ongoing);
+        _;
+    }
+    modifier isRole(bytes32 _role) {
+        require(hasRole(_role, msg.sender));
         _;
     }
     modifier isInvestor() {
         require(!hasRole(CREATOR_ROLE, msg.sender) && !hasRole(REVIEWER_ROLE, msg.sender));
         _;
     }
-    modifier isAdmin() {
-        require(hasRole(REVIEWER_ROLE, msg.sender));
-        _;
-    }
 
-    function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline, uint _fundGoalAmount, uint minimum, address _fundingTokenContract/*, address _dptTokenContract*/) public initializer  {
+    event Invested(address indexed payee, uint256 tierIndex);
+    event ChangedState(State newState);
+
+    function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline, uint _fundGoalAmount, address _fundingTokenContract/*, address _dptTokenContract*/) public initializer {
         fundGoalAmount = _fundGoalAmount;
         fundRaisingDeadline = _fundRaisingDeadline;
-        minimumContribution = minimum;
-        state = State.PendingApproval;
+        _changeState(State.PendingApproval);
         //dptTokenContract = _dptTokenContract;
         fundingTokenContract = _fundingTokenContract;
         _setupRole(CREATOR_ROLE, _creator);
@@ -66,11 +74,8 @@ contract Project is Initializable, AccessControl {
         reviewer = _reviewer;
     }
 
-    
-    function invest() external isInvestor isState(State.Ongoing) payable { //TODO: fundingTokenContract
-        require(msg.value >= minimumContribution);
-        require(!fundingExpired());
-        investments[msg.sender] += msg.value;
+    function addRewardTier(string calldata _name, uint _investment) external isRole(CREATOR_ROLE) isState(State.PendingApproval) {
+        rewardTiers.push(rewardTier(_name, _investment));
     }
 
     function fundingGoalReached() private view returns (bool) {
@@ -79,46 +84,68 @@ contract Project is Initializable, AccessControl {
 
     function fundingExpired() private returns (bool){
         bool result = block.timestamp > fundRaisingDeadline && state == State.Ongoing;
-        if(result) state = State.Expired;
+        if(result) {
+            _changeState(State.Expired);
+            emit ChangedState(State.Expired);
+        }
         return result;
     }
+    
+    // User invests in specified reward tier 
+    function invest (uint256 tierIndex) external isInvestor isState(State.Ongoing) nonReentrant {
+        require(!fundingExpired());
+        uint investAmount = rewardTiers[tierIndex].investment;
+        uint256 allowance = IERC20(fundingTokenContract).allowance(msg.sender, address(this));
+        require(allowance >= investAmount, "Insufficient token allowance");
+		IERC20(fundingTokenContract).safeTransferFrom(
+			address(msg.sender),
+			address(this),
+			investAmount
+		);
+        
+        investments[msg.sender][tierIndex] ++; // < remove
+        // mint nft
 
-    //Get Token balance of Address - to retrieve this contract's stablecoin balance and users' dpt balance
-    function balanceOf(address addr, address _tokenContract) public view returns (uint256) {
-        IERC20 DPTContract = IERC20(_tokenContract);
-        return DPTContract.balanceOf(addr);
+        emit Invested(msg.sender, tierIndex);
     }
 
-
-    function withdraw() external isCreator { //TODO: fundingTokenContract
+    // Creator withdraws succesful project funds to wallet
+    function withdraw() external isRole(CREATOR_ROLE) nonReentrant {
         require(fundingExpired(), "Funding not expired");
         require(fundingGoalReached(), "Funding goal not reached");
         uint amount = address(this).balance;
-        uint feeAmount = amount * /* (balanceOf(msg.sender, dptTokenContract) > 0 ? projectDiscountedWithdrawalFee : */ projectWithdrawalFee /*)*/ / (10**18);
+        uint feeAmount = amount * /* (IERC20(dptTokenContract).balanceOf(msg.sender, dptTokenContract) > 0 ? projectDiscountedWithdrawalFee : */ projectWithdrawalFee /*)*/ / 1e18;
 
-        (bool successFee,) = reviewer.call{value: feeAmount}("");
-        require(successFee, "Failed to send Fee");
-        (bool successWithdraw,) = msg.sender.call{value: amount - feeAmount}("");
-        require(successWithdraw, "Failed to withdraw");
-        state = State.Successful;
+        IERC20(fundingTokenContract).safeTransfer(reviewer, feeAmount);
+        IERC20(fundingTokenContract).safeTransfer(msg.sender, amount - feeAmount);
+        _changeState(State.Successful);
+        emit ChangedState(State.Successful);
     }
 
-    function getRefund() external isInvestor returns (bool){ //TODO: fundingTokenContract
-        require(fundingExpired(), "Funding not expired");
+    // Creator or Reviewer cancels pending or ongoing unsuccesful project permitting eventual refunds to investors
+    function cancel() external isStateCancellable {
+        require(hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender));
+        _changeState(State.Cancelled);
+    }
+
+    // Investor requests refund for rewards of specified tier
+    function refundRewardTier(uint256 tierIndex) external isInvestor nonReentrant {
+        require(fundingExpired() || state == State.Cancelled, "Funding not expired or cancelled");
         require(!fundingGoalReached(), "Refund not available because funding goal reached");
-        require(investments[msg.sender] > 0, "No investments found");
-        uint amount = investments[msg.sender];
-        if (amount > 0){
-            investments[msg.sender] = 0;
-            if (!payable(msg.sender).send(amount)){
-                investments[msg.sender] = amount;
-                return false;
-            }
-        }
-        return true;
+        require(investments[msg.sender][tierIndex] > 0, "No investments found in specified tier");
+        uint amount = investments[msg.sender][tierIndex] * rewardTiers[tierIndex].investment;
+        require(amount > 0);
+        IERC20(fundingTokenContract).safeTransfer(msg.sender, amount);
+        investments[msg.sender][tierIndex] = 0;
     }
 
-    function changeState(State newState) external isAdmin{
+    function changeState(State newState) external isRole(REVIEWER_ROLE) {
         state = newState;
+        emit ChangedState(newState);
+    }
+
+    function _changeState(State newState) internal {
+        state = newState;
+        emit ChangedState(newState);
     }
 }
