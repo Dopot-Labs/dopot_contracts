@@ -74,6 +74,10 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         reviewer = _reviewer;
     }
 
+    function addProjectMedia(string calldata _name, uint _investment) external isRole(CREATOR_ROLE) isState(State.PendingApproval) {
+        //rewardTiers.push(rewardTier(_name, _investment)); ADD IPFS HASH TO ARRAY WITH A MAX SIZE
+    }
+
     function addRewardTier(string calldata _name, uint _investment) external isRole(CREATOR_ROLE) isState(State.PendingApproval) {
         rewardTiers.push(rewardTier(_name, _investment));
     }
