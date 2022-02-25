@@ -6,6 +6,7 @@ var REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
 
 
 const tokenContractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const fundingTokenContract = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 (async () => {
   let owner;
   let addr1, addr2, addrs;
@@ -17,7 +18,7 @@ const tokenContractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   
     beforeEach(async function () {
       ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-      projectfactory = await ProjectFactory.deploy(/*tokenContractAddress*/);
+      projectfactory = await ProjectFactory.deploy(fundingTokenContract /*.tokenContractAddress*/);
       await projectfactory.deployed();
     });
 
@@ -33,18 +34,17 @@ const tokenContractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
     var projectfactory;
     var project;
     const fundingGoal = 10;
-    const minimumInvestment = 2;
 
     beforeEach(async () => {
       ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-      projectfactory = await ProjectFactory.deploy(/*tokenContractAddress*/);
+      projectfactory = await ProjectFactory.deploy(fundingTokenContract /*,tokenContractAddress*/);
       await projectfactory.deployed();
-      project = await projectfactory.connect(addr1).createProject(new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime(), fundingGoal, minimumInvestment);
+      project = await projectfactory.connect(addr1).createProject(new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime(), fundingGoal, minimumInvestment); // <---------------------
       await project.deployed();
     });
 
     it("Should fail investing less than minumum", async () => {
-      let successInvest = await project.connect(addr2).invest.value(minimumInvestment-1);
+      let successInvest = await project.connect(addr2).invest(0);
       
     });
 
