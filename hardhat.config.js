@@ -5,30 +5,31 @@ require("hardhat-gas-reporter");
 require("@nomiclabs/hardhat-etherscan");
 require('dotenv').config()
 
-const etherscanAPIkey = process.env.polygonscanAPIkey;
+const blockscanAPIkey = process.env.blockscanAPIkey;
 const alchemyAPIkey = process.env.ALCHEMY_API_KEY;
-const mumbaiPrivatekey = process.env.MUMBAI_PRIVATE_KEY;
+const privateKey = process.env.PRIVATE_KEY;
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.2",
+  solidity: "0.8.9",
   gasReporter: {
     currency: 'EUR',
     enabled: true,
-    gasPrice: 274
+    gasPrice: 3
   },
   optimizer: {
     enabled: true,
     runs: 1 
   },
   etherscan: {
-    apiKey: etherscanAPIkey  
+    apiKey: blockscanAPIkey
   },
   networks: {
-    mumbai: {
-      url: `https://polygon-mumbai.g.alchemy.com/v2/${alchemyAPIkey}`, //`https://speedy-nodes-nyc.moralis.io//polygon/mumbai`
-      accounts: [`0x${mumbaiPrivatekey}`],
+    goerli: {
+      url: `https://rpc.goerli.mudit.blog`, // https://eth-goerli.alchemyapi.io/v2/${alchemyAPIkey}
+      accounts: [`0x${privateKey}`],
+      gas: 2100000
     }
   },
 };

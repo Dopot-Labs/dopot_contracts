@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity ^0.8.9;
 import "hardhat/console.sol";
 import "../IPFS.sol";
-import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -11,8 +10,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Project is Initializable, AccessControl, ReentrancyGuard {
     //bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");: 
-    using SafeMath for uint256;
-    using SafeMath for uint;
     //Needed only to interact with untrusted token contract
     using SafeERC20 for IERC20;
     uint constant public projectWithdrawalFee = 3/100 * 1e18;
@@ -35,20 +32,22 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         Expired,
         Cancelled
     }
-    State public state;
+    uint[] public tierMinted;
+    State public projectState;
 
     IPFS.RewardTier[] public rewardTiers;
     IPFS.Multihash[] public projectMedia;
+    IPFS.Multihash public projectSurvey;
 
     // rewardTierIndex -> totInvested
     mapping (uint256 => uint) investments;
 
     modifier isState(State _state){
-        require(state == _state);
+        require(projectState == _state);
         _;
     }
-    modifier isStateCancellable(){
-        require(state == State.PendingApproval || state == State.Ongoing);
+    modifier isProjectCancellable(){
+        require(projectState == State.PendingApproval || projectState == State.Ongoing);
         _;
     }
     modifier isRole(bytes32 _role) {
@@ -60,19 +59,24 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         _;
     }
 
-    event Invested(address indexed payee, uint256 tierIndex);
+    event Invested(address indexed payee, uint256 indexed tierIndex);
     event ChangedState(State newState);
 
-    function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline, IPFS.Multihash[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers,  address _fundingTokenContract/*, address _dptTokenContract*/) external initializer {
+    function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline,
+    IPFS.Multihash[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, IPFS.Multihash calldata _projectSurvey, address _fundingTokenContract/*, address _dptTokenContract*/) external initializer {
         fundRaisingDeadline = _fundRaisingDeadline;
-
-        for (uint i=0; i < projectMediaLimit; i += 1) {
-            projectMedia.push(_projectMedia[i]);
+        projectSurvey = _projectSurvey;
+        for (uint i=0; i < _projectMedia.length; i += 1) {
+            if(i < projectMediaLimit)
+                projectMedia.push(_projectMedia[i]);
         }
-        for (uint i=0; i < rewardsLimit; i += 1) {
-            rewardTiers.push(_rewardTiers[i]);
+        for (uint i=0; i < _rewardTiers.length; i += 1) {
+            if(i < rewardsLimit){
+                rewardTiers.push(_rewardTiers[i]);
+                tierMinted.push(0); // maybe i should simply do project is succesfull and can withdraw when all nfts supply of all tiers have been minted
+            }
         }
-        _changeState(State.PendingApproval);
+        projectState = State.PendingApproval;
         //dptTokenContract = _dptTokenContract;
         fundingTokenContract = _fundingTokenContract;
         _setupRole(CREATOR_ROLE, _creator);
@@ -81,16 +85,17 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
     }
 
     function fundingGoalReached(uint rewardIndex) public view returns (bool) {
-        return investments[rewardIndex] >= rewardTiers[rewardIndex].investment * rewardTiers[rewardIndex].supply;
+        return investments[rewardIndex] >= rewardTiers[rewardIndex].investment * rewardTiers[rewardIndex].supply; // or check nfts supply?
     }
 
     function fundingExpired() private returns (bool){
-        bool result = block.timestamp > fundRaisingDeadline && state == State.Ongoing;
-        if(result) {
+        bool isExpired = (block.timestamp > fundRaisingDeadline);
+        
+        if(isExpired && projectState == State.Ongoing) {
             _changeState(State.Expired);
             emit ChangedState(State.Expired);
         }
-        return result;
+        return isExpired;
     }
     
     // User invests in specified reward tier 
@@ -105,6 +110,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
 			investAmount
 		);
         
+        tierMinted[tierIndex] += 1;
         //investments[msg.sender][tierIndex] ++; // < remove, instead
         // mint nft
 
@@ -112,9 +118,9 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
     }
 
     // Creator withdraws succesful project funds to wallet
-    function withdraw() external isRole(CREATOR_ROLE) nonReentrant {
+    function withdraw(uint tierIndex) external isRole(CREATOR_ROLE) nonReentrant {
         require(fundingExpired(), "Funding not expired");
-        require(fundingGoalReached(), "Funding goal not reached"); // restructure so can withdraw only succesful reward tiers (?)
+        require(fundingGoalReached(tierIndex), "Funding goal not reached");
         uint amount = address(this).balance;
         uint feeAmount = amount * /* (IERC20(dptTokenContract).balanceOf(msg.sender, dptTokenContract) > 0 ? projectDiscountedWithdrawalFee : */ projectWithdrawalFee /*)*/ / 1e18;
 
@@ -124,16 +130,16 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         emit ChangedState(State.Successful);
     }
 
-    // Creator or Reviewer cancels pending or ongoing unsuccesful project permitting eventual refunds to investors
-    function cancel() external isStateCancellable {
+    // Creator or Reviewer cancels pending or ongoing project permitting eventual refunds to investors
+    function cancel() external isProjectCancellable {
         require(hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender));
-        _changeState(State.Cancelled);
+        projectState = State.Cancelled;
     }
 
     // Investor requests refund for rewards of specified tier
     function refundRewardTier(uint256 tierIndex) external isInvestor nonReentrant {
-        require(fundingExpired() || state == State.Cancelled, "Funding not expired or cancelled");
-        require(!fundingGoalReached(tierIndex), "Refund not available because funding goal reached");
+        require(fundingExpired() || projectState == State.Cancelled, "Funding not expired or cancelled");
+        if(projectState != State.Cancelled) require(!fundingGoalReached(tierIndex), "Refund not available because funding goal reached");
         //require(investments[tierIndex] > 0, "No investments found in specified tier"); << remove, instead 
         
         //uint amount = investments[msg.sender][tierIndex] * rewardTiers[tierIndex].investment; require ownership of nft
@@ -142,15 +148,16 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
 
         //IERC20(fundingTokenContract).safeTransfer(msg.sender, amount);
         investments[tierIndex] -= rewardTiers[tierIndex].investment;
+        tierMinted[tierIndex] -= 1;
     }
 
     function changeState(State newState) external isRole(REVIEWER_ROLE) {
-        state = newState;
+        projectState = newState;
         emit ChangedState(newState);
     }
 
     function _changeState(State newState) internal {
-        state = newState;
+        projectState = newState;
         emit ChangedState(newState);
     }
 }

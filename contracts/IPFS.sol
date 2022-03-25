@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity ^0.8.9;
 /**
  * @title IPFSStorage
  * @author Forest Fang (@saurfang)
@@ -18,7 +18,10 @@ library IPFS {
   }
 
   struct RewardTier {
-      Multihash media;
+      bytes32 digest;
+      uint8 hashFunction;
+      uint8 size;
+      
       uint investment;
       uint supply;
   }
