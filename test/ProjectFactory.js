@@ -41,6 +41,7 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
     var projectfactory;
     var project;
     var fundingToken;
+    const amountTokens = 100;
 
     beforeEach(async () => {
       const Token = await ethers.getContractFactory("Dopot");
@@ -53,36 +54,40 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
 
       let Project = await ethers.getContractFactory("Project");
       let ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-      const fundingTokenAddr = "0x97cb342Cf2F6EcF48c1285Fb8668f5a4237BF862";
-      fundingToken = new ethers.Contract(fundingTokenAddr, fundingTokenAbi, owner);
-      projectfactory = await ProjectFactory.deploy(fundingTokenAddr, reward.address /*,tokenContractAddress*/);
+      const FundingToken = await ethers.getContractFactory("GodModeErc20");
+      fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
+      await fundingToken.deployed();
+      projectfactory = await ProjectFactory.deploy(fundingToken.address, reward.address /*,tokenContractAddress*/);
       await projectfactory.deployed();
       const raiseBy = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
       const projectMedia = [{digest: "0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2", hashFunction: 18, size: 32}]; // a
-      const rewardTiers = [{digest: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", hashFunction: 18, size: 32, investment: 10, supply: 100}]; // b
+      const rewardTiers = [{digest: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", hashFunction: 18, size: 32, investment:  amountTokens , supply: 100}]; // b
       const survey = {digest: "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf62", hashFunction: 18, size: 32}; // s
 
       let projecttx = await projectfactory.createProject(raiseBy, projectMedia, rewardTiers, survey); // <---------------------
       let receipt = await projecttx.wait(1);
       let projectCreatedEvent = receipt.events.pop();
       let projectaddr = projectCreatedEvent.args["project"];
-      console.log(projectaddr);
       project = await Project.attach(projectaddr);
     });
 
     it("Should fail investing less than allowance", async () => {
       await project.changeState(2);
-      expect(project.connect(addr1).invest(0)).to.be.rejectedWith('Insufficient token allowance');
+      expect(project.connect(addr2).invest(0)).to.be.rejectedWith('ERR_ERC20_TRANSFER_INSUFFICIENT_BALANCE');
     });
 
     it("Should succed investing allowance", async () => {
       await project.changeState(2);
-      let minttx = await fundingToken.mint(addr1.address, 1000000);
-      let mintreceipt = await minttx.wait(1);
+      await fundingToken.mint(addr2.address, amountTokens );
+      const approvaltx = await fundingToken.connect(addr2).increaseAllowance(project.address, amountTokens );
+      const approvalreceipt = await approvaltx.wait(1);
+      const approvalEvent = approvalreceipt.events.pop();
+      //console.dir(ethers.utils.formatEther(approvalEvent.args.amount));
       
-      let allowtx = await fundingToken.increaseAllowance(addr1.address, 1000000);
-      let allowreceipt = await allowtx.wait(1);
-      await project.connect(addr1).invest(0);
+      let investtx = await project.connect(addr2).invest(0);
+      let receipt = await investtx.wait(1);
+      let investedEvent = receipt.events.pop();
+      expect(investedEvent.args).to.exist;
     });
     /*
     it("Should set the right ROLES", async () => {

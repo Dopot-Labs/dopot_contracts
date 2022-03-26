@@ -102,8 +102,9 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
     function invest (uint256 tierIndex) external isInvestor isState(State.Ongoing) nonReentrant {
         require(!fundingExpired());
         uint investAmount = rewardTiers[tierIndex].investment;
-        uint256 allowance = IERC20(fundingTokenContract).allowance(msg.sender, address(this));
-        require(allowance >= investAmount, "Insufficient token allowance");
+        //uint256 allowance = IERC20(fundingTokenContract).allowance(msg.sender, address(this));
+        //require(allowance >= investAmount, "Insufficient token allowance");
+
 		IERC20(fundingTokenContract).safeTransferFrom(
 			address(msg.sender),
 			address(this),
