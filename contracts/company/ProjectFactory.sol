@@ -4,43 +4,52 @@ pragma solidity ^0.8.9;
 import "hardhat/console.sol";
 import "./Project.sol";
 import "../IPFS.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+interface DopotReward{ function whitelistProject(address project) external; }
 
-contract ProjectFactory is Ownable{
-
-    address payable public immutable admin; /// immutable ??
-    
+contract ProjectFactory is Ownable, Initializable {
+    DopotReward dopotRewardContract;
     //address immutable dptTokenContract;
     address immutable fundingTokenContract;
-    address immutable rewardContract;
+    string frontendHash;
     
     address public projectImplementation;
     uint public projectImplementationVersion;
     mapping(address => uint) public projectsVersions;
-    event ProjectCreated(address indexed creator, address indexed project); 
+    event ProjectCreated(address indexed creator, address indexed project, string[] projectMedia, IPFS.RewardTier[] rewardTiers, string survey); 
+    event FrontendUpdated(string frontendHash);
 
     function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
         projectImplementation = _projectImplementation;
         projectImplementationVersion ++;
     }
 
-    constructor(address _fundingTokenContract, address _rewardContract /*, address _dptTokenContract*/) { 
+    function setFrontendHash(string memory _frontendHash) external onlyOwner {
+        frontendHash = _frontendHash;
+        emit FrontendUpdated(_frontendHash);
+    }
+
+    function setRewardContract(address _rewardContract) external onlyOwner{
+        dopotRewardContract = DopotReward(_rewardContract);
+    }
+
+    function initialize(address _fundingTokenContract /*, address _dptTokenContract*/) public initializer {
+        __Ownable_init();
         projectImplementation = address(new Project());
         projectImplementationVersion = 1;
 
-        admin = payable(msg.sender);
         //dptTokenContract = _dptTokenContract;
         fundingTokenContract = _fundingTokenContract;
-        rewardContract = _rewardContract;
     }
-
  
-    function createProject(uint fundRaisingDeadline, IPFS.Multihash[] memory _projectMedia, IPFS.RewardTier[] memory _rewardTiers, IPFS.Multihash memory survey) external returns (address) {
+    function createProject(uint fundRaisingDeadline, string[] memory _projectMedia, IPFS.RewardTier[] memory _rewardTiers, string memory survey) external returns (address) {
         address projectClone = Clones.clone(projectImplementation);
-        Project(projectClone).initialize(payable(msg.sender), admin, fundRaisingDeadline, _projectMedia, _rewardTiers, survey, fundingTokenContract /*, tokenContract*/);
+        Project(projectClone).initialize(payable(msg.sender), payable(this.owner()), fundRaisingDeadline, _projectMedia, _rewardTiers, survey, fundingTokenContract /*, tokenContract*/);
         projectsVersions[projectClone] = projectImplementationVersion;
-        emit ProjectCreated(msg.sender, projectClone);
+        dopotRewardContract.whitelistProject(projectClone);
+        emit ProjectCreated(msg.sender, projectClone, _projectMedia, _rewardTiers, survey);
         return projectClone;
     }
 }

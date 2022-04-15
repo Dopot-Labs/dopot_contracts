@@ -7,8 +7,15 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+interface IDopotReward{ 
+    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256); 
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) external;
+    function balanceOf(address account, uint256 id) external view returns (uint256);
+    function burn(address account, uint256 id, uint256 value) external;
+}
 
-contract Project is Initializable, AccessControl, ReentrancyGuard {
+contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
+    IDopotReward dopotRewardContract;
     //bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");: 
     //Needed only to interact with untrusted token contract
     using SafeERC20 for IERC20;
@@ -32,15 +39,13 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         Expired,
         Cancelled
     }
-    uint[] public tierMinted;
     State public projectState;
 
     IPFS.RewardTier[] public rewardTiers;
-    IPFS.Multihash[] public projectMedia;
-    IPFS.Multihash public projectSurvey;
+    string[] public projectMedia;
+    string public projectSurvey;
 
     // rewardTierIndex -> totInvested
-    mapping (uint256 => uint) investments;
 
     modifier isState(State _state){
         require(projectState == _state);
@@ -59,11 +64,13 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         _;
     }
 
-    event Invested(address indexed payee, uint256 indexed tierIndex);
+    event Invested(address indexed payee, uint256 indexed tierIndex, uint256 amount);
+    event Refunded(address indexed payee, uint256 indexed tierIndex, uint256 amount);
     event ChangedState(State newState);
 
     function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline,
-    IPFS.Multihash[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, IPFS.Multihash calldata _projectSurvey, address _fundingTokenContract/*, address _dptTokenContract*/) external initializer {
+    string[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, string calldata _projectSurvey, address _fundingTokenContract/*, address _dptTokenContract*/) external initializer {
+        dopotRewardContract = IDopotReward(msg.sender);
         fundRaisingDeadline = _fundRaisingDeadline;
         projectSurvey = _projectSurvey;
         for (uint i=0; i < _projectMedia.length; i += 1) {
@@ -72,8 +79,9 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         }
         for (uint i=0; i < _rewardTiers.length; i += 1) {
             if(i < rewardsLimit){
+                uint tokenid =  dopotRewardContract.mintToken(address(this), _rewardTiers[i].ipfshash, _rewardTiers[i].supply, rewardTierToBytes(_rewardTiers[i]));
                 rewardTiers.push(_rewardTiers[i]);
-                tierMinted.push(0); // maybe i should simply do project is succesfull and can withdraw when all nfts supply of all tiers have been minted
+                rewardTiers[i].tokenId = tokenid;                
             }
         }
         projectState = State.PendingApproval;
@@ -84,8 +92,8 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
         reviewer = _reviewer;
     }
 
-    function fundingGoalReached(uint rewardIndex) public view returns (bool) {
-        return investments[rewardIndex] >= rewardTiers[rewardIndex].investment * rewardTiers[rewardIndex].supply; // or check nfts supply?
+    function fundingGoalReached(uint tierIndex) public view returns (bool) {
+        return dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) == 0;
     }
 
     function fundingExpired() private returns (bool){
@@ -99,23 +107,17 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
     }
     
     // User invests in specified reward tier 
-    function invest (uint256 tierIndex) external isInvestor isState(State.Ongoing) nonReentrant {
+    function invest (uint256 tierIndex, uint256 amount) external isInvestor isState(State.Ongoing) nonReentrant {
         require(!fundingExpired());
-        uint investAmount = rewardTiers[tierIndex].investment;
-        //uint256 allowance = IERC20(fundingTokenContract).allowance(msg.sender, address(this));
-        //require(allowance >= investAmount, "Insufficient token allowance");
+        require(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) > 0);
+        uint investAmount = rewardTiers[tierIndex].investment * amount;
+        uint256 allowance = IERC20(fundingTokenContract).allowance(msg.sender, address(this));
+        require(allowance >= investAmount, "Insufficient token allowance");
 
-		IERC20(fundingTokenContract).safeTransferFrom(
-			address(msg.sender),
-			address(this),
-			investAmount
-		);
-        
-        tierMinted[tierIndex] += 1;
-        //investments[msg.sender][tierIndex] ++; // < remove, instead
-        // mint nft
+		IERC20(fundingTokenContract).safeTransferFrom(msg.sender, address(this), investAmount);
+        dopotRewardContract.safeTransferFrom(address(this), msg.sender, rewardTiers[tierIndex].tokenId, amount, "");
 
-        emit Invested(msg.sender, tierIndex);
+        emit Invested(msg.sender, tierIndex, amount);
     }
 
     // Creator withdraws succesful project funds to wallet
@@ -134,22 +136,27 @@ contract Project is Initializable, AccessControl, ReentrancyGuard {
     // Creator or Reviewer cancels pending or ongoing project permitting eventual refunds to investors
     function cancel() external isProjectCancellable {
         require(hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender));
+
+        /*Burn if rewards of tier are all ownned by this
+        for (uint i=0; i < rewardTiers.length; i += 1) {
+            rewardTiers[i].tokenId;
+            if(dopotRewardContract.balanceOf(address(this), rewardTiers[i].tokenId) == rewardTiers[i].supply)
+                dopotRewardContract.burn(address(this), rewardTiers[i].tokenId, 0);
+        }*/
+        
         projectState = State.Cancelled;
     }
 
     // Investor requests refund for rewards of specified tier
-    function refundRewardTier(uint256 tierIndex) external isInvestor nonReentrant {
+    function refundRewardTier(uint256 tierIndex, uint256 amount) external isInvestor nonReentrant {
         require(fundingExpired() || projectState == State.Cancelled, "Funding not expired or cancelled");
         if(projectState != State.Cancelled) require(!fundingGoalReached(tierIndex), "Refund not available because funding goal reached");
-        //require(investments[tierIndex] > 0, "No investments found in specified tier"); << remove, instead 
-        
-        //uint amount = investments[msg.sender][tierIndex] * rewardTiers[tierIndex].investment; require ownership of nft
+        require(dopotRewardContract.balanceOf(msg.sender, rewardTiers[tierIndex].tokenId) == amount);
 
-        //require(amount > 0); and burn it (one at a time, to refund multiple rewards of same tier call again)
+        dopotRewardContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].tokenId, amount, "");
+        IERC20(fundingTokenContract).safeTransfer(msg.sender, rewardTiers[tierIndex].investment * amount);
 
-        //IERC20(fundingTokenContract).safeTransfer(msg.sender, amount);
-        investments[tierIndex] -= rewardTiers[tierIndex].investment;
-        tierMinted[tierIndex] -= 1;
+        emit Refunded(msg.sender, tierIndex, amount);
     }
 
     function changeState(State newState) external isRole(REVIEWER_ROLE) {

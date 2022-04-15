@@ -7,13 +7,13 @@ async function main() {
   console.log("Initializing reward with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   
-  const media = "0x01559ae4021a3b33529b22967b2865dcde755e06ee66f514e2967da6c5f324e6";
+  const media = "bafkreifq6gowfov72wbfpqgpauye3eqpudv3roowgqpck26lxdqjugh63m";
   const RewardFactory = await ethers.getContractFactory("DopotReward");
-  const reward = await RewardFactory.attach( "0x1F51353D5F1D0a12913602a4061b813992D38e6F" ); //await RewardFactory.deploy();
+  const reward = await RewardFactory.attach( "0xAfAcde5DA0229A44357a20FaF564C22E63549A4c" ); //await RewardFactory.deploy();
   //await reward.deployed();
-  console.log("Reward deployed to:" + reward.address);
+  console.log("Reward contract:" + reward.address);
 
-  let minttx = await reward.connect(deployer).mint(deployer.getAddress(), media, 1, 0);
+  let minttx = await reward.connect(deployer).mintToken(deployer.getAddress(), media, 1);
   let receipt = await minttx.wait(1);
   let rewardMintedEvent = receipt.events.pop();
   let rewardData = rewardMintedEvent.args;

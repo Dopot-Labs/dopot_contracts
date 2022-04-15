@@ -1,75 +1,85 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
-
+import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "../IPFS.sol";
 
-contract DopotReward is ERC1155, AccessControl, ERC1155Burnable {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    event RewardMinted(address to, uint256 id, uint256 amount, bytes data);
-    event RewardMintedBatch(address to, uint256[] ids, uint256[] amounts, bytes data);
-    event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
-    constructor() ERC1155("ipfs://f0{id}") {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(MINTER_ROLE, msg.sender); // not good > who can mint?
+
+contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
+    mapping (uint256 => string) private _tokenURIs;
+    mapping (uint256 => bool) public isNFT;
+    mapping (uint256 => IPFS.RewardTier) public rewardData;
+    
+    using Counters for Counters.Counter; 
+    Counters.Counter private _tokenIds;
+    mapping (address => bool) projectWhitelist;
+
+    function whitelistProject(address project) external onlyOwner{
+        projectWhitelist[project] = true;
     }
-
-    function mint(address to, uint256 id, uint256 amount, bytes memory data) public onlyRole(MINTER_ROLE) {
-        _mint(to, id, amount, data);
-        emit RewardMinted(to, id, amount, data);
-    }
-
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) public onlyRole(MINTER_ROLE) {
-        _mintBatch(to, ids, amounts, data);
-        emit RewardMintedBatch(to, ids, amounts, data);
+    modifier onlyWhitelistedProject() {
+        require(projectWhitelist[msg.sender] == true);
+        _;
     }
     
-    function convertToNFT(uint _tokenId, uint _tokenCount) onlyRole(MINTER_ROLE) external {
-        //require(_tokenId == PLAYER || _tokenId == COACH || _tokenId == JERSEY || _tokenId == STADIUM, "Invalid Token ID"); BURN TOKEN & MINT NFT
-        _mint(msg.sender, _tokenId, _tokenCount, "");
+    event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);
+    event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
+    constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
+        transferOwnership(_projectFactoryContract);
+    }
+
+    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) public onlyWhitelistedProject returns(uint256) { 
+        uint256 newItemId = _tokenIds.current(); 
+        _mint(msg.sender, newItemId, amount, rewardTier);
+        _setTokenUri(newItemId, tokenURI);
+        _tokenIds.increment();
+        emit RewardMinted(to, newItemId, amount, IPFS.bytesToRewardTier(rewardTier));
+        return newItemId; 
+    } 
+
+    function convertToNFT(uint _tokenId, uint _tokenCount) onlyWhitelistedProject external {
+        isNFT[_tokenId] = true;
         emit RewardDelivered(_tokenId, msg.sender, _tokenCount);
     }
 
-    function uri(uint256 _tokenID) override public pure returns (string memory) {
-        string memory hexstringtokenID;
-        hexstringtokenID = uint2hexstr(_tokenID);
+    function uri(uint256 _tokenID) override public view returns (string memory) {
         return string(
             abi.encodePacked(
-            "ipfs://f0",
-            hexstringtokenID)
+            "ipfs://",
+            _tokenURIs[_tokenID])
         );
     }
-
-    function uint2hexstr(uint256 i) public pure returns (string memory) {
-        if (i == 0) return "0";
-        uint j = i;
-        uint length;
-        while (j != 0) {
-            length++;
-            j = j >> 4;
-        }
-        uint mask = 15;
-        bytes memory bstr = new bytes(length);
-        uint k = length;
-        while (i != 0) {
-            uint curr = (i & mask);
-            bstr[--k] = curr > 9 ?
-                bytes1(uint8(55 + curr)) :
-                bytes1(uint8(48 + curr)); // 55 = 65 - 10
-            i = i >> 4;
-        }
-        return string(bstr);
+    function _setTokenUri(uint256 tokenId, string memory tokenURI)  private {
+         _tokenURIs[tokenId] = tokenURI; 
+    }
+    
+    // The following functions are overrides required by Solidity.
+    function mint(address account, uint256 id, uint256 amount, bytes calldata data) public onlyOwner {
+        IPFS.RewardTier memory d = IPFS.bytesToRewardTier(data);
+        d.ipfshash = "";
+        _mint(account, id, amount, "");
+        rewardData[id] = d;
+    }
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) public onlyOwner {
+        _mintBatch(to, ids, amounts, data);
+    }
+    function burn(address account, uint256 id, uint256 value) override(ERC1155Burnable) public {
+        require(account == _msgSender() || isApprovedForAll(account, _msgSender()), "ERC1155: caller is not owner nor approved");
+        require(isNFT[id] == true, "Token needs to be non fungible");
+        _burn(account, id, value);
     }
 
-    // The following functions are overrides required by Solidity.
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155, AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
+    function burnBatch(address account, uint256[] memory ids, uint256[] memory values) override(ERC1155Burnable) public {
+        require(account == _msgSender() || isApprovedForAll(account, _msgSender()), "ERC1155: caller is not owner nor approved");
+        for (uint i=0; i < ids.length; i += 1) {
+            require(isNFT[ids[i]] == true, "A token needs to be non fungible");
+        }
+        _burnBatch(account, ids, values);
+    }
+    function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal override(ERC1155, ERC1155Supply) {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
 }

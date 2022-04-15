@@ -1,28 +1,46 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
-/**
- * @title IPFSStorage
- * @author Forest Fang (@saurfang)
- * @dev Stores IPFS (multihash) hash by address. A multihash entry is in the format
- * of <varint hash function code><varint digest size in bytes><hash function output>
- * See https://github.com/multiformats/multihash
- *
- * Currently IPFS hash is 34 bytes long with first two segments represented as a single byte (uint8)
- * The digest is 32 bytes long and can be stored using bytes32 efficiently.
- */
-library IPFS {
-  struct Multihash {
-    bytes32 digest;
-    uint8 hashFunction;
-    uint8 size;
-  }
+import "./external/Seriality/Seriality.sol";
 
+contract IPFS is Seriality{
   struct RewardTier {
-      bytes32 digest;
-      uint8 hashFunction;
-      uint8 size;
-      
-      uint investment;
-      uint supply;
+      string ipfshash;
+      uint256 tokenId;
+      uint256 investment;
+      uint256 supply;
   }
+  function rewardTierToBytes(RewardTier calldata r) pure public returns (bytes memory data) {
+        uint _size = sizeOfString(r.ipfshash) + sizeOfUint(256) + sizeOfUint(256) + sizeOfUint(256);
+        data = new  bytes(_size);
+        uint offset = 256;
+
+        stringToBytes(offset, bytes(r.ipfshash), data);
+        offset -= sizeOfString(r.ipfshash);
+
+        uintToBytes(offset, r.tokenId, data);
+        offset -= sizeOfUint(256);
+
+        uintToBytes(offset, r.investment, data);
+        offset -= sizeOfUint(256);
+
+        uintToBytes(offset, r.supply, data);
+        offset -= sizeOfUint(256);
+        return (data);
+    }
+    function bytesToRewardTier(bytes calldata data) pure public returns (RewardTier memory r) {
+        uint offset = 256;
+
+        bytesToString(offset, data, bytes(r.ipfshash));
+        offset -= sizeOfString(r.ipfshash);
+
+        r.tokenId = bytesToUint256(offset, data);
+        offset -= sizeOfUint(256);
+
+        r.tokenId = bytesToUint256(offset, data);
+        offset -= sizeOfUint(256);
+        
+        r.tokenId = bytesToUint256(offset, data);
+        offset -= sizeOfUint(256);
+        return r;
+     }
 }
