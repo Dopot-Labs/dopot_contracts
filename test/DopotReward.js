@@ -17,7 +17,7 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
 
     beforeEach(async () => {
       const RewardFactory = await ethers.getContractFactory("DopotReward");
-      const reward = await RewardFactory.deploy();
+      const reward = await RewardFactory.deploy("0x3355FA97cEa19F6c11Eee2559AA01E188472f737");
       await reward.deployed();
 
       media = "0x01559ae4021a99b0d373d7bc8a80504bad782367abe12c21373c83adc6bf6a7e";

@@ -23,21 +23,22 @@
     "@openzeppelin/hardhat-upgrades": "^1.9.0",
     "@types/chai-as-promised": "^7.1.4",
     "chai": "^4.3.4",
-    "ethereum-waffle": "^3.4.0",
     "ethers": "^5.4.4",
-    "hardhat": "^2.4.3",
+    "hardhat": "^2.9.3",
     "hardhat-gas-reporter": "^1.0.4"
   },
   "dependencies": {
     "@nomiclabs/hardhat-etherscan": "^2.1.4",
     "@openzeppelin/contracts": "^4.5.0",
-    "@openzeppelin/contracts-upgradeable": "^4.5.2",
+    "@openzeppelin/contracts-upgradeable": "^4.5.0",
     "@openzeppelin/test-helpers": "^0.5.12",
     "bignumber.js": "^9.0.1",
     "bn-chai": "^1.0.1",
     "chai-as-promised": "^7.1.1",
     "chai-bignumber": "^3.0.0",
     "dotenv": "^10.0.0",
-    "keccak256": "^1.0.3"
+    "ethereum-waffle": "^3.4.4",
+    "keccak256": "^1.0.3",
+    "solc": "^0.8.13"
   }
 }

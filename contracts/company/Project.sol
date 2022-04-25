@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
+
 import "hardhat/console.sol";
 import "../IPFS.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -7,11 +8,14 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+
 interface IDopotReward{ 
     function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256); 
     function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function burn(address account, uint256 id, uint256 value) external;
+    function whitelistProject(address project) external;
 }
 
 contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
@@ -22,7 +26,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     uint constant public projectWithdrawalFee = 3/100 * 1e18;
     uint constant public projectDiscountedWithdrawalFee = 2/100 * 1e18;
     uint constant public projectMediaLimit = 4;
-    uint constant public rewardsLimit = 6;
+    uint constant public rewardsLimit = 4;
 
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
     bytes32 public constant REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
@@ -48,15 +52,11 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     // rewardTierIndex -> totInvested
 
     modifier isState(State _state){
-        require(projectState == _state);
+        require(projectState == _state, "Project state error");
         _;
     }
     modifier isProjectCancellable(){
         require(projectState == State.PendingApproval || projectState == State.Ongoing);
-        _;
-    }
-    modifier isRole(bytes32 _role) {
-        require(hasRole(_role, msg.sender));
         _;
     }
     modifier isInvestor() {
@@ -69,8 +69,8 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     event ChangedState(State newState);
 
     function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline,
-    string[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, string calldata _projectSurvey, address _fundingTokenContract/*, address _dptTokenContract*/) external initializer {
-        dopotRewardContract = IDopotReward(msg.sender);
+    string[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, string calldata _projectSurvey, address _fundingTokenContract, address _dopotRewardAddress/*, address _dptTokenContract*/) external initializer {
+        dopotRewardContract = IDopotReward(_dopotRewardAddress);
         fundRaisingDeadline = _fundRaisingDeadline;
         projectSurvey = _projectSurvey;
         for (uint i=0; i < _projectMedia.length; i += 1) {
@@ -109,7 +109,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     // User invests in specified reward tier 
     function invest (uint256 tierIndex, uint256 amount) external isInvestor isState(State.Ongoing) nonReentrant {
         require(!fundingExpired());
-        require(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) > 0);
+        require(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) >= amount);
         uint investAmount = rewardTiers[tierIndex].investment * amount;
         uint256 allowance = IERC20(fundingTokenContract).allowance(msg.sender, address(this));
         require(allowance >= investAmount, "Insufficient token allowance");
@@ -121,29 +121,29 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     }
 
     // Creator withdraws succesful project funds to wallet
-    function withdraw(uint tierIndex) external isRole(CREATOR_ROLE) nonReentrant {
-        require(fundingExpired(), "Funding not expired");
-        require(fundingGoalReached(tierIndex), "Funding goal not reached");
-        uint amount = address(this).balance;
+    function withdraw(uint tierIndex) external onlyRole(CREATOR_ROLE) nonReentrant {
+        if(!fundingExpired())
+            require(fundingGoalReached(tierIndex), "Funding goal not reached");
+        else require(fundingExpired(), "Funding not expired");
+        uint amount = address(this).balance; // <<<<< NO!!!! only specified tier's money
         uint feeAmount = amount * /* (IERC20(dptTokenContract).balanceOf(msg.sender, dptTokenContract) > 0 ? projectDiscountedWithdrawalFee : */ projectWithdrawalFee /*)*/ / 1e18;
 
         IERC20(fundingTokenContract).safeTransfer(reviewer, feeAmount);
         IERC20(fundingTokenContract).safeTransfer(msg.sender, amount - feeAmount);
         _changeState(State.Successful);
-        emit ChangedState(State.Successful);
+        emit ChangedState(State.Successful); // <<<<< NO!!!! only specified tier
     }
 
     // Creator or Reviewer cancels pending or ongoing project permitting eventual refunds to investors
     function cancel() external isProjectCancellable {
         require(hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender));
 
-        /*Burn if rewards of tier are all ownned by this
+        /*Burn if rewards of tier are all owned by this
         for (uint i=0; i < rewardTiers.length; i += 1) {
             rewardTiers[i].tokenId;
             if(dopotRewardContract.balanceOf(address(this), rewardTiers[i].tokenId) == rewardTiers[i].supply)
                 dopotRewardContract.burn(address(this), rewardTiers[i].tokenId, 0);
         }*/
-        
         projectState = State.Cancelled;
     }
 
@@ -159,7 +159,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
         emit Refunded(msg.sender, tierIndex, amount);
     }
 
-    function changeState(State newState) external isRole(REVIEWER_ROLE) {
+    function changeState(State newState) external onlyRole(REVIEWER_ROLE) {
         projectState = newState;
         emit ChangedState(newState);
     }
@@ -167,5 +167,18 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     function _changeState(State newState) internal {
         projectState = newState;
         emit ChangedState(newState);
+    }
+
+    function changeReviewer(address newReviewer) external onlyRole(REVIEWER_ROLE) {
+        reviewer = payable(newReviewer);
+        _revokeRole(REVIEWER_ROLE, msg.sender);
+        _grantRole(REVIEWER_ROLE, newReviewer);
+    }
+    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
     }
 }
