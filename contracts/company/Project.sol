@@ -125,7 +125,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
         if(!fundingExpired())
             require(fundingGoalReached(tierIndex), "Funding goal not reached");
         else require(fundingExpired(), "Funding not expired");
-        uint amount = address(this).balance; // <<<<< NO!!!! only specified tier's money
+        uint amount = IERC20(fundingTokenContract).balanceOf(address(this)); // <<<<< NO!!!! only specified tier's money
         uint feeAmount = amount * /* (IERC20(dptTokenContract).balanceOf(msg.sender, dptTokenContract) > 0 ? projectDiscountedWithdrawalFee : */ projectWithdrawalFee /*)*/ / 1e18;
 
         IERC20(fundingTokenContract).safeTransfer(reviewer, feeAmount);

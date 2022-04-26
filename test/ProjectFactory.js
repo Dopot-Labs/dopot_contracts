@@ -6,12 +6,45 @@ const keccak256 = require('keccak256')
 var CREATOR_ROLE = keccak256("CREATOR_ROLE");
 var REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
 const fundingTokenAbi = require("./abi/fundingToken.json");
+const investment = 2;
+const amountTokens = 100;
+const raiseBy = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
+const projectMedia = ["0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2"]; // a
+const rewardTiers = [{ipfshash: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", tokenId: 0, investment, supply: amountTokens}]; // b
+const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf62"; // s
+
 
 (async () => {
   let owner;
-  let addr1, addr2, addrs;
-  [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
-  // Start test block
+  let projectOwner, addr2, addrs;
+  [owner, projectOwner, addr2, ...addrs] = await ethers.getSigners();
+
+  describe("Project Creation limits", async () => {
+    it("Should fail exceeding project creation limit", async () => {
+      const Token = await ethers.getContractFactory("Dopot");
+      const token = await Token.deploy();
+      await token.deployed();
+      let ProjectFactory = await ethers.getContractFactory("ProjectFactory");
+      const FundingToken = await ethers.getContractFactory("GodModeErc20");
+      let fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
+      await fundingToken.deployed();
+      let projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address/*,tokenContractAddress*/);
+      await projectfactory.deployed();
+  
+      const RewardFactory = await ethers.getContractFactory("DopotReward");
+      let reward = await RewardFactory.deploy(projectfactory.address);
+      await reward.deployed();
+      await projectfactory.connect(owner).setRewardContract(reward.address);
+      const projectLimit = parseInt((await projectfactory.projectLimit())._hex, 16);
+      for(let i = 1; i < projectLimit + 5; i++){
+        if(i > projectLimit)
+          await expect(projectfactory.createProject(raiseBy, projectMedia, rewardTiers, survey)).to.be.rejected;
+        else 
+          await projectfactory.createProject(raiseBy, projectMedia, rewardTiers, survey);
+      }
+    });
+  });
+
   describe('ProjectFactory', function () {
     let ProjectFactory;
     let projectfactory;
@@ -43,9 +76,9 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
     var project;
     var fundingToken;
     var reward;
-    const investment = 2;
-    const amountTokens = 100;
     const rndTierAmount = Math.floor(Math.random() * (amountTokens - 1) + 1);
+    
+
 
     beforeEach(async () => {
       const Token = await ethers.getContractFactory("Dopot");
@@ -59,17 +92,13 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
       await fundingToken.deployed();
       projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address/*,tokenContractAddress*/);
       await projectfactory.deployed();
-      const raiseBy = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
-      const projectMedia = ["0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2"]; // a
-      const rewardTiers = [{ipfshash: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", tokenId: 0, investment, supply: amountTokens}]; // b
-      const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf62"; // s
 
       const RewardFactory = await ethers.getContractFactory("DopotReward");
       reward = await RewardFactory.deploy(projectfactory.address);
       await reward.deployed();
       await projectfactory.connect(owner).setRewardContract(reward.address);
 
-      let projecttx = await projectfactory.connect(owner).createProject(raiseBy, projectMedia, rewardTiers, survey); // <---------------------
+      let projecttx = await projectfactory.connect(projectOwner).createProject(raiseBy, projectMedia, rewardTiers, survey); // <---------------------
       let receipt = await projecttx.wait(1);
       let projectCreatedEvent = receipt.events.pop();
       let projectaddr = projectCreatedEvent.args["project"];
@@ -100,11 +129,12 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
       expect(investedEvent.args).to.exist;
       expect(parseInt((await reward.balanceOf(addr2.address, 0))._hex, 16)).to.be.equal(amountTokens);
       expect(await project.fundingGoalReached(0)).to.be.equal(true);
-
-      let withdrawttx = await project.connect(owner).withdraw(0);
+      let withdrawttx = await project.connect(projectOwner).withdraw(0);
       await withdrawttx.wait(1);
-      console.dir(await fundingToken.balanceOf(owner.address));
-      expect(parseInt((await fundingToken.balanceOf(owner.address))._hex, 16)).to.be.greaterThanOrEqual(1);
+      const reviewerFee = amountTokens*investment * await project.projectWithdrawalFee() / 1e18;
+      const balanceProjectOwner = (amountTokens*investment) - reviewerFee;
+      expect(parseInt((await fundingToken.balanceOf(owner.address))._hex, 16)).to.be.equal(reviewerFee);
+      expect(parseInt((await fundingToken.balanceOf(projectOwner.address))._hex, 16)).to.be.equal(balanceProjectOwner);
     });
 
     it("Should succed investing allowance 1x", async () => {
@@ -121,7 +151,7 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
     });
     
     it("Should set the right ROLES", async () => {
-      expect(await project.hasRole(CREATOR_ROLE, owner.address)).to.equal(true);
+      expect(await project.hasRole(CREATOR_ROLE, projectOwner.address)).to.equal(true);
       expect(await project.hasRole(REVIEWER_ROLE, owner.address)).to.equal(true);
       expect(owner.address).to.equal(await project.reviewer());
     });
