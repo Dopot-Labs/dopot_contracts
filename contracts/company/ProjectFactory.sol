@@ -17,7 +17,7 @@ contract ProjectFactory is Ownable, Initializable {
     address public projectImplementation;
     uint public projectImplementationVersion;
     mapping(address => uint) public projectsVersions;
-    event ProjectCreated(address indexed creator, address indexed project, string[] projectMedia, IPFS.RewardTier[] rewardTiers, string survey); 
+    event ProjectCreated(address indexed creator, address indexed project, string projectMedia, IPFS.RewardTier[] rewardTiers, string survey); 
     event FrontendUpdated(string frontendHash);
 
     uint public period; // how many blocks before limit resets
@@ -52,7 +52,7 @@ contract ProjectFactory is Ownable, Initializable {
         fundingTokenContract = _fundingTokenContract;
     }
  
-    function createProject(uint fundRaisingDeadline, string[] memory _projectMedia, IPFS.RewardTier[] memory _rewardTiers, string memory survey) external returns (address) {
+    function createProject(uint fundRaisingDeadline, string memory _projectMedia, IPFS.RewardTier[] memory _rewardTiers, string memory survey) external returns (address) {
         updatePeriod();
         uint totalAmount = currentPeriodAmount + 1;
         require(totalAmount >= currentPeriodAmount, 'overflow');

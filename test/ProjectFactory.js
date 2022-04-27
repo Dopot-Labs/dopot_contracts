@@ -9,7 +9,7 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
 const investment = 2;
 const amountTokens = 100;
 const raiseBy = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
-const projectMedia = ["0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2"]; // a
+const projectMedia = "0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2"; // a
 const rewardTiers = [{ipfshash: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", tokenId: 0, investment, supply: amountTokens}]; // b
 const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf62"; // s
 

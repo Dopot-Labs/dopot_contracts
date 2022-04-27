@@ -46,7 +46,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     State public projectState;
 
     IPFS.RewardTier[] public rewardTiers;
-    string[] public projectMedia;
+    string public projectMedia;
     string public projectSurvey;
 
     // rewardTierIndex -> totInvested
@@ -69,14 +69,11 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     event ChangedState(State newState);
 
     function initialize(address payable _creator, address payable _reviewer, uint _fundRaisingDeadline,
-    string[] calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, string calldata _projectSurvey, address _fundingTokenContract, address _dopotRewardAddress/*, address _dptTokenContract*/) external initializer {
+    string calldata _projectMedia, IPFS.RewardTier[] calldata _rewardTiers, string calldata _projectSurvey, address _fundingTokenContract, address _dopotRewardAddress/*, address _dptTokenContract*/) external initializer {
         dopotRewardContract = IDopotReward(_dopotRewardAddress);
         fundRaisingDeadline = _fundRaisingDeadline;
         projectSurvey = _projectSurvey;
-        for (uint i=0; i < _projectMedia.length; i += 1) {
-            if(i < projectMediaLimit)
-                projectMedia.push(_projectMedia[i]);
-        }
+        projectMedia = _projectMedia;
         for (uint i=0; i < _rewardTiers.length; i += 1) {
             if(i < rewardsLimit){
                 uint tokenid =  dopotRewardContract.mintToken(address(this), _rewardTiers[i].ipfshash, _rewardTiers[i].supply, rewardTierToBytes(_rewardTiers[i]));

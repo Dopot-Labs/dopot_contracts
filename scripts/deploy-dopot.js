@@ -22,7 +22,7 @@ async function main() {
   
   const ProjectFactory = await ethers.getContractFactory("ProjectFactory");
   const fundingTokenContract = "0x97cb342Cf2F6EcF48c1285Fb8668f5a4237BF862";
-  const projectfactory = await upgrades.deployProxy(fundingTokenContract);
+  const projectfactory = await ProjectFactory.deploy(fundingTokenContract);
   await projectfactory.deployed();
   console.log("ProjectFactory deployed to:", projectfactory.address);
   
