@@ -65,6 +65,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     }
 
     event Invested(address indexed payee, uint256 indexed tierIndex, uint256 amount);
+    event Gifted(address indexed recipient, uint256 indexed tierIndex, uint256 amount);
     event Refunded(address indexed payee, uint256 indexed tierIndex, uint256 amount);
     event ChangedState(State newState);
 
@@ -113,8 +114,14 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
 
 		IERC20(fundingTokenContract).safeTransferFrom(msg.sender, address(this), investAmount);
         dopotRewardContract.safeTransferFrom(address(this), msg.sender, rewardTiers[tierIndex].tokenId, amount, "");
-
         emit Invested(msg.sender, tierIndex, amount);
+    }
+
+    function gift (uint256 tierIndex, uint256 amount, address recipient) external onlyRole(CREATOR_ROLE) isState(State.Ongoing) nonReentrant {
+        require(!fundingExpired());
+        require(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) >= amount);
+        dopotRewardContract.safeTransferFrom(address(this), msg.sender, rewardTiers[tierIndex].tokenId, amount, "");
+        emit Gifted(recipient, tierIndex, amount);
     }
 
     // Creator withdraws succesful project funds to wallet
