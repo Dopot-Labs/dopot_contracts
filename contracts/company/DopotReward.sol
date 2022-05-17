@@ -13,6 +13,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     mapping (uint256 => string) private _tokenURIs;
     mapping (uint256 => bool) public isNFT;
     mapping (uint256 => IPFS.RewardTier) public rewardData;
+    mapping(uint256 => mapping(address => bytes)) public shippingData;
     
     using Counters for Counters.Counter; 
     Counters.Counter private _tokenIds;
@@ -25,6 +26,11 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
         require(projectWhitelist[msg.sender] == true);
         _;
     }
+
+    function editShippingDetails(uint256 id, bytes calldata shippingDetails) external {
+        require(balanceOf(msg.sender, id) > 0, "ERC1155: caller is not owner");
+        shippingData[id][msg.sender] = shippingDetails;
+    }
     
     event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);
     event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
@@ -34,14 +40,16 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
 
     function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) public onlyWhitelistedProject returns(uint256) { 
         uint256 newItemId = _tokenIds.current(); 
-        _mint(msg.sender, newItemId, amount, rewardTier);
+        mint(msg.sender, newItemId, amount, rewardTier);
         _setTokenUri(newItemId, tokenURI);
         _tokenIds.increment();
+
         emit RewardMinted(to, newItemId, amount, IPFS.bytesToRewardTier(rewardTier));
         return newItemId; 
     } 
 
     function convertToNFT(uint _tokenId, uint _tokenCount) onlyWhitelistedProject external {
+        require(rewardData[_tokenId].projectaddress == msg.sender, "Caller is not original minter");
         isNFT[_tokenId] = true;
         emit RewardDelivered(_tokenId, msg.sender, _tokenCount);
     }
@@ -61,6 +69,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     function mint(address account, uint256 id, uint256 amount, bytes calldata data) public onlyOwner {
         IPFS.RewardTier memory d = IPFS.bytesToRewardTier(data);
         d.ipfshash = "";
+        d.projectaddress = msg.sender;
         _mint(account, id, amount, "");
         rewardData[id] = d;
     }

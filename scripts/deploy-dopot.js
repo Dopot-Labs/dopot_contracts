@@ -1,9 +1,9 @@
 /*  
 npx hardhat run --network goerli scripts/deploy-dopot.js
 
-Dopot deployed to: 0x43844668e476bF4FbBF7b82C35eb7517044026c9
-Reward deployed to: 0xAfAcde5DA0229A44357a20FaF564C22E63549A4c
-ProjectFactory deployed to: 0xcC644f80D3D66F077211fbfE5Bae0AB1fC367781
+Dopot deployed to: 0x36c42CA9cb9d42d124368eCd60B0cBBA3ACbd2E9
+Reward deployed to: 0x72D0D2f44BB102c00f934D6F6AdCeA4Ac952BDd5
+ProjectFactory deployed to: 0xc158c50363d3Cc4bDc4D6C092a696194A5240eb2
 */
 const { ethers, upgrades } = require("hardhat");
 const web3 = require("web3");

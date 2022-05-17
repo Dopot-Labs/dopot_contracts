@@ -90,7 +90,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
         reviewer = _reviewer;
     }
 
-    function fundingGoalReached(uint tierIndex) public view returns (bool) {
+    function tierFundingGoalReached(uint tierIndex) public view returns (bool) {
         return dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) == 0;
     }
 
@@ -127,7 +127,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     // Creator withdraws succesful project funds to wallet
     function withdraw(uint tierIndex) external onlyRole(CREATOR_ROLE) nonReentrant {
         if(!fundingExpired())
-            require(fundingGoalReached(tierIndex), "Funding goal not reached");
+            require(tierFundingGoalReached(tierIndex), "Funding goal not reached");
         else require(fundingExpired(), "Funding not expired");
         uint amount = IERC20(fundingTokenContract).balanceOf(address(this)); // <<<<< NO!!!! only specified tier's money
         uint feeAmount = amount * /* (IERC20(dptTokenContract).balanceOf(msg.sender, dptTokenContract) > 0 ? projectDiscountedWithdrawalFee : */ projectWithdrawalFee /*)*/ / 1e18;
@@ -154,7 +154,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     // Investor requests refund for rewards of specified tier
     function refundRewardTier(uint256 tierIndex, uint256 amount) external isInvestor nonReentrant {
         require(fundingExpired() || projectState == State.Cancelled, "Funding not expired or cancelled");
-        if(projectState != State.Cancelled) require(!fundingGoalReached(tierIndex), "Refund not available because funding goal reached");
+        if(projectState != State.Cancelled) require(!tierFundingGoalReached(tierIndex), "Refund not available because funding goal reached");
         require(dopotRewardContract.balanceOf(msg.sender, rewardTiers[tierIndex].tokenId) == amount);
 
         dopotRewardContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].tokenId, amount, "");

@@ -8,6 +8,7 @@ contract IPFS is Seriality{
       uint256 tokenId;
       uint256 investment;
       uint256 supply;
+      address projectaddress;
   }
   function rewardTierToBytes(RewardTier calldata r) pure public returns (bytes memory data) {
         uint _size = sizeOfString(r.ipfshash) + sizeOfUint(256) + sizeOfUint(256) + sizeOfUint(256);
