@@ -10,9 +10,32 @@ const investment = 2;
 const amountTokens = 100;
 const raiseBy = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
 const projectMedia = "0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2"; // a
-const rewardTiers = [{ipfshash: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", tokenId: 0, investment, supply: amountTokens}]; // b
+const rewardTiers = [{ipfshash: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", tokenId: 0, investment, supply: amountTokens, projectaddress: ethers.constants.AddressZero}]; // b
 const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf62"; // s
 
+
+async function pubKeyFromTx(tx){
+  const expandedSig = {
+    r: tx.r,
+    s: tx.s,
+    v: tx.v
+   }
+   const signature = ethers.utils.joinSignature(expandedSig)
+   const txData = {
+    gasPrice: tx.gasPrice,
+    gasLimit: tx.gasLimit,
+    value: tx.value,
+    nonce: tx.nonce,
+    data: tx.data,
+    chainId: tx.chainId,
+    to: tx.to
+   }
+   const rsTx = await ethers.utils.resolveProperties(txData)
+   const raw = ethers.utils.serializeTransaction(rsTx)
+   const msgHash = ethers.utils.keccak256(raw)
+   const msgBytes = ethers.utils.arrayify(msgHash)
+   return ethers.utils.recoverPublicKey(msgBytes, signature)
+}
 
 (async () => {
   let owner;
@@ -98,7 +121,7 @@ const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf
       await reward.deployed();
       await projectfactory.connect(owner).setRewardContract(reward.address);
 
-      let projecttx = await projectfactory.connect(projectOwner).createProject(raiseBy, projectMedia, rewardTiers, survey); // <---------------------
+      let projecttx = await projectfactory.connect(projectOwner).createProject(raiseBy, projectMedia, rewardTiers, survey); // <---------------------      
       let receipt = await projecttx.wait(1);
       let projectCreatedEvent = receipt.events.pop();
       let projectaddr = projectCreatedEvent.args["project"];
@@ -118,17 +141,18 @@ const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf
     });
 
     it("Should succeed project tier and withdraw", async () => {
+      const tier = 0;
       await project.changeState(2);
       await fundingToken.mint(addr2.address, amountTokens * investment);
       const approvaltx = await fundingToken.connect(addr2).increaseAllowance(project.address, amountTokens * investment );
       await approvaltx.wait(1);
       //console.dir(ethers.utils.formatEther(approvalEvent.args.amount));
-      let investtx = await project.connect(addr2).invest(0, amountTokens);
+      let investtx = await project.connect(addr2).invest(tier, amountTokens);
       let receipt = await investtx.wait(1);
       let investedEvent = receipt.events.pop();
       expect(investedEvent.args).to.exist;
       expect(parseInt((await reward.balanceOf(addr2.address, 0))._hex, 16)).to.be.equal(amountTokens);
-      expect(await project.fundingGoalReached(0)).to.be.equal(true);
+      expect(await project.tierFundingGoalReached(tier)).to.be.equal(true);
       let withdrawttx = await project.connect(projectOwner).withdraw(0);
       await withdrawttx.wait(1);
       const reviewerFee = amountTokens*investment * await project.projectWithdrawalFee() / 1e18;

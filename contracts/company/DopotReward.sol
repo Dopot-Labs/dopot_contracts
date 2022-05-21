@@ -66,7 +66,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     }
     
     // The following functions are overrides required by Solidity.
-    function mint(address account, uint256 id, uint256 amount, bytes calldata data) public onlyOwner {
+    function mint(address account, uint256 id, uint256 amount, bytes calldata data) private {
         IPFS.RewardTier memory d = IPFS.bytesToRewardTier(data);
         d.ipfshash = "";
         d.projectaddress = msg.sender;

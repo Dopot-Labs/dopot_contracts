@@ -48,6 +48,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     IPFS.RewardTier[] public rewardTiers;
     string public projectMedia;
     string public projectSurvey;
+    bytes32 public publicEncryptionKey;
 
     // rewardTierIndex -> totInvested
 
@@ -79,7 +80,8 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
             if(i < rewardsLimit){
                 uint tokenid =  dopotRewardContract.mintToken(address(this), _rewardTiers[i].ipfshash, _rewardTiers[i].supply, rewardTierToBytes(_rewardTiers[i]));
                 rewardTiers.push(_rewardTiers[i]);
-                rewardTiers[i].tokenId = tokenid;                
+                rewardTiers[i].tokenId = tokenid;
+                rewardTiers[i].projectaddress = address(0);                
             }
         }
         projectState = State.PendingApproval;
@@ -161,6 +163,10 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
         IERC20(fundingTokenContract).safeTransfer(msg.sender, rewardTiers[tierIndex].investment * amount);
 
         emit Refunded(msg.sender, tierIndex, amount);
+    }
+
+    function setPublicEncryptionKey(bytes32 _publicEncryptionKey) external onlyRole(CREATOR_ROLE) isState(State.Ongoing) {
+        publicEncryptionKey = _publicEncryptionKey;
     }
 
     function changeState(State newState) external onlyRole(REVIEWER_ROLE) {
