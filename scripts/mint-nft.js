@@ -1,4 +1,4 @@
-// npx hardhat run --network goerli scripts/mint-nft.js
+// npx hardhat run --network rinkeby scripts/mint-nft.js
 
 const { ethers, upgrades } = require("hardhat");
 

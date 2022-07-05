@@ -1,4 +1,5 @@
 // Load dependencies
+const { ethers, upgrades } = require("hardhat");
 var chai = require("chai");
 var { expect } = chai;
 var BN = require('bn.js');
@@ -12,7 +13,8 @@ const raiseBy = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).g
 const projectMedia = "0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2"; // a
 const rewardTiers = [{ipfshash: "0x1db59a982e018221f8f97b9044f13d58b8ed5c4b7943fe48cad9ca8f68f9c23c", tokenId: 0, investment, supply: amountTokens, projectaddress: ethers.constants.AddressZero}]; // b
 const survey = "0xedeb62f6233e9de80fb9d67cf307844046c5e62631045868adaf5e221ad9cf62"; // s
-
+const dptUniPoolAddress = "0x9Ee2D1A3E913ded868B2c381b07520519D9425EA";
+const dptTokenAddress = "0x19d29A99880560832d9fa9B7d30211E5936B3Db7";
 
 async function pubKeyFromTx(tx){
   const expandedSig = {
@@ -51,7 +53,7 @@ async function pubKeyFromTx(tx){
       const FundingToken = await ethers.getContractFactory("GodModeErc20");
       let fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
       await fundingToken.deployed();
-      let projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address/*,tokenContractAddress*/);
+      let projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address, dptTokenAddress, dptUniPoolAddress);
       await projectfactory.deployed();
   
       const RewardFactory = await ethers.getContractFactory("DopotReward");
@@ -78,7 +80,7 @@ async function pubKeyFromTx(tx){
       await token.deployed();
 
       ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-      projectfactory = await ProjectFactory.deploy(token.address/*,tokenContractAddress*/);
+      projectfactory = await ProjectFactory.deploy(token.address, dptTokenAddress, dptUniPoolAddress);
       await projectfactory.deployed();
 
       const RewardFactory = await ethers.getContractFactory("DopotReward");
@@ -113,7 +115,7 @@ async function pubKeyFromTx(tx){
       const FundingToken = await ethers.getContractFactory("GodModeErc20");
       fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
       await fundingToken.deployed();
-      projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address/*,tokenContractAddress*/);
+      projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address, dptTokenAddress, dptUniPoolAddress);
       await projectfactory.deployed();
 
       const RewardFactory = await ethers.getContractFactory("DopotReward");
@@ -130,14 +132,14 @@ async function pubKeyFromTx(tx){
 
     it("Should fail investing less than allowance", async () => {
       await project.changeState(2);
-      await expect(project.connect(addr2).invest(0, 1)).to.be.rejectedWith('Insufficient token allowance');
+      await expect(project.connect(addr2).invest(0, 1)).to.be.rejectedWith('A2');
     });
 
     it("Should fail investing on pending project", async () => {
       await fundingToken.mint(addr2.address, rndTierAmount * investment );
       const approvaltx = await fundingToken.connect(addr2).increaseAllowance(project.address, rndTierAmount * investment );
       await approvaltx.wait(1);
-      await expect(project.connect(addr2).invest(0, rndTierAmount)).to.be.rejectedWith('Project state error');
+      await expect(project.connect(addr2).invest(0, rndTierAmount)).to.be.rejectedWith('State');
     });
 
     it("Should succeed project tier and withdraw", async () => {

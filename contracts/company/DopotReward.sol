@@ -19,6 +19,12 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     Counters.Counter private _tokenIds;
     mapping (address => bool) projectWhitelist;
 
+    event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);
+    event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
+    constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
+        transferOwnership(_projectFactoryContract);
+    }
+
     function whitelistProject(address project) external onlyOwner{
         projectWhitelist[project] = true;
     }
@@ -31,14 +37,8 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
         require(balanceOf(msg.sender, id) > 0, "ERC1155: caller is not owner");
         shippingData[id][msg.sender] = shippingDetails;
     }
-    
-    event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);
-    event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
-    constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
-        transferOwnership(_projectFactoryContract);
-    }
 
-    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) public onlyWhitelistedProject returns(uint256) { 
+    function mintToken(address to, string memory tokenURI, uint256 amount, bytes memory rewardTier) public onlyWhitelistedProject returns(uint256) { 
         uint256 newItemId = _tokenIds.current(); 
         mint(msg.sender, newItemId, amount, rewardTier);
         _setTokenUri(newItemId, tokenURI);
@@ -66,7 +66,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     }
     
     // The following functions are overrides required by Solidity.
-    function mint(address account, uint256 id, uint256 amount, bytes calldata data) private {
+    function mint(address account, uint256 id, uint256 amount, bytes memory data) private {
         IPFS.RewardTier memory d = IPFS.bytesToRewardTier(data);
         d.ipfshash = "";
         d.projectaddress = msg.sender;

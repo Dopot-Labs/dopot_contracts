@@ -3,14 +3,37 @@ pragma solidity ^0.8.0;
 import "./external/Seriality/Seriality.sol";
 
 contract IPFS is Seriality{
+  enum State {
+    PendingApproval,
+    Rejected,
+    Ongoing,
+    Successful,
+    Expired,
+    Cancelled
+  }
+  struct AddrParams {
+    address payable creator;
+    address payable reviewer;
+    address fundingTokenAddress;
+    address dopotRewardAddress;
+    address dptTokenAddress;
+    address dptUniPoolAddress;
+  }
+  struct ProjectParams {
+    uint projectWithdrawalFee;
+    uint projectDiscountedWithdrawalFee;
+    uint projectMediaLimit;
+    uint rewardsLimit;
+  }
   struct RewardTier {
       string ipfshash;
       uint256 tokenId;
       uint256 investment;
       uint256 supply;
       address projectaddress;
+      State projectTierState;
   }
-  function rewardTierToBytes(RewardTier calldata r) pure public returns (bytes memory data) {
+  function rewardTierToBytes(RewardTier memory r) pure public returns (bytes memory data) {
         uint _size = sizeOfString(r.ipfshash) + sizeOfUint(256) + sizeOfUint(256) + sizeOfUint(256);
         data = new  bytes(_size);
         uint offset = 256;
@@ -28,7 +51,7 @@ contract IPFS is Seriality{
         offset -= sizeOfUint(256);
         return (data);
     }
-    function bytesToRewardTier(bytes calldata data) pure public returns (RewardTier memory r) {
+    function bytesToRewardTier(bytes memory data) pure public returns (RewardTier memory r) {
         uint offset = 256;
 
         bytesToString(offset, data, bytes(r.ipfshash));
