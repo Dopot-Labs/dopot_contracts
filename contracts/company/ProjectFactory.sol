@@ -41,11 +41,13 @@ contract ProjectFactory is Ownable, Initializable {
         addrParams.dopotRewardAddress = _rewardContract;
     }
 
-    function setProjectParams(uint _projectWithdrawalFee, uint _projectDiscountedWithdrawalFee, uint _projectMediaLimit, uint _rewardsLimit) external onlyOwner {
+    function setProjectParams(uint _projectWithdrawalFee, uint _projectDiscountedWithdrawalFee, uint _projectMediaLimit, uint _rewardsLimit, uint _postponeFee, uint _postponeAmount) external onlyOwner {
         projectParams.projectWithdrawalFee = _projectWithdrawalFee;
         projectParams.projectDiscountedWithdrawalFee = _projectDiscountedWithdrawalFee;
         projectParams.projectMediaLimit = _projectMediaLimit;
         projectParams.rewardsLimit = _rewardsLimit;
+        projectParams.postponeFee = _postponeFee;
+        projectParams.postponeAmount = _postponeAmount;
     }
     
     constructor(address _fundingTokenAddress, address _dptTokenAddress, address _dptUniPoolAddress) {
@@ -56,6 +58,8 @@ contract ProjectFactory is Ownable, Initializable {
         projectImplementationVersion = 1;
         projectParams.projectWithdrawalFee = 18/1000 * 1e18; // 1.8%
         projectParams.projectDiscountedWithdrawalFee = 1/100 * 1e18; // 1%
+        projectParams.postponeFee = 1/100 * 1e18; // 1%
+        projectParams.postponeAmount = 30 days;
         projectParams.rewardsLimit = 4;
         addrParams.dptTokenAddress = _dptTokenAddress;
         addrParams.fundingTokenAddress = _fundingTokenAddress;

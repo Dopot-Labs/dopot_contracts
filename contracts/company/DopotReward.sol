@@ -10,13 +10,13 @@ import "../IPFS.sol";
 
 
 contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+
     mapping (uint256 => string) private _tokenURIs;
     mapping (uint256 => bool) public isNFT;
     mapping (uint256 => IPFS.RewardTier) public rewardData;
     mapping(uint256 => mapping(address => bytes)) public shippingData;
-    
-    using Counters for Counters.Counter; 
-    Counters.Counter private _tokenIds;
     mapping (address => bool) projectWhitelist;
 
     event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);

@@ -22,14 +22,16 @@ contract IPFS is Seriality{
   struct ProjectParams {
     uint projectWithdrawalFee;
     uint projectDiscountedWithdrawalFee;
+    uint postponeFee;
+    uint postponeAmount;
     uint projectMediaLimit;
     uint rewardsLimit;
   }
   struct RewardTier {
       string ipfshash;
-      uint256 tokenId;
-      uint256 investment;
-      uint256 supply;
+      uint tokenId;
+      uint investment;
+      uint supply;
       address projectaddress;
       State projectTierState;
   }
