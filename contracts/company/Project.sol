@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
-import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 interface IDopotReward{ 
     function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256); 
     function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) external;
@@ -25,6 +24,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
 
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
     bytes32 public constant REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
+    bytes32 public publicEncryptionKey;
     address payable public reviewer;
     uint public fundRaisingDeadline;
     IPFS.AddrParams addrParams;
@@ -32,31 +32,16 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     IPFS.RewardTier[] public rewardTiers;
     string public projectMedia;
     string public projectSurvey;
-    bytes32 public publicEncryptionKey;
     uint public totalGoal;
 
     // rewardTierIndex -> totInvested
     error StateError();
     error DptRewardBalanceError();
-    error DptBalanceError();
     function isState(State _state, uint tierIndex) private view {
         if(rewardTiers[tierIndex].projectTierState != _state) revert StateError();
     }
     function isInvestor() private view {
         require(!hasRole(CREATOR_ROLE, msg.sender) && !hasRole(REVIEWER_ROLE, msg.sender));
-    }
-
-    function dptOracleQuote(uint amount, uint fee) private view returns (uint quoteAmount){
-        if(IERC20(addrParams.dptTokenAddress).balanceOf(msg.sender) == 0) revert DptBalanceError();
-        //secondsAgo: 60 * 60 * 24 (24h)
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = 60 * 60 * 24;
-        secondsAgos[1] = 0;
-        (int56[] memory tickCumulatives,) = IUniswapV3Pool(addrParams.dptUniPoolAddress).observe(secondsAgos);
-        int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
-        int24 tick = int24(tickCumulativesDelta / int56(uint56(60 * 60 * 24)));
-        if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(uint56(60 * 60 * 24)) != 0)) tick--;
-        quoteAmount = OracleLibrary.getQuoteAtTick(tick, uint128(amount *  fee  / 1e18), addrParams.fundingTokenAddress, addrParams.dptTokenAddress);
     }
 
     event Invested(address indexed payee, uint256 indexed tierIndex, uint256 amount);
@@ -85,18 +70,21 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     }
 
     function fundingExpired(uint tierIndex) private returns (bool){
-        bool isExpired = (block.timestamp > fundRaisingDeadline);
-        if(isExpired && rewardTiers[tierIndex].projectTierState == State.Ongoing) {
+        uint deadline = fundRaisingDeadline;
+        if(deadline == 45 days || deadline == 65 || deadline == 90 days) return false;
+        if((block.timestamp > deadline) && rewardTiers[tierIndex].projectTierState == State.Ongoing) {
             rewardTiers[tierIndex].projectTierState = State.Expired;
             emit ChangedState(State.Expired, tierIndex);
         }
-        return isExpired;
+        return (block.timestamp > deadline);
     }
     
     //tierIndexOngoing: index of an ongoing tier
     function postponeDeadline(uint tierIndexOngoing) external onlyRole(CREATOR_ROLE) nonReentrant{
         isState(State.Ongoing, tierIndexOngoing);
-        IERC20(addrParams.dptTokenAddress).safeTransfer(reviewer, dptOracleQuote(totalGoal, projectParams.postponeFee));
+        uint fundingTokenBalance = IERC20(addrParams.fundingTokenAddress).balanceOf(address(this));
+        if(fundingTokenBalance < (totalGoal  *  projectParams.postponeThreshold / 1e18)) revert BalanceError();
+        IERC20(addrParams.dptTokenAddress).safeTransfer(reviewer, dptOracleQuote(totalGoal - fundingTokenBalance, projectParams.postponeFee, addrParams));
         fundRaisingDeadline += projectParams.postponeAmount;
         emit PostponedDeadline();
     }
@@ -105,8 +93,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     function invest (uint tierIndex, uint amount) external nonReentrant {
         isInvestor();
         isState(State.Ongoing, tierIndex);
-        require(!fundingExpired(tierIndex));
-        require(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) >= amount);
+        require(!fundingExpired(tierIndex) && dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) >= amount);
 
 		IERC20(addrParams.fundingTokenAddress).safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment * amount);
         dopotRewardContract.safeTransferFrom(address(this), msg.sender, rewardTiers[tierIndex].tokenId, amount, "");
@@ -116,16 +103,18 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     // Creator withdraws succesful project funds to wallet
     function withdraw(uint tierIndex, bool discountDPT) external onlyRole(CREATOR_ROLE) nonReentrant{
         require(rewardTiers[tierIndex].projectTierState == State.Ongoing || rewardTiers[tierIndex].projectTierState == State.Expired);
+        address _reviewer = reviewer;
+        address _fundToken = addrParams.fundingTokenAddress;
         if(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) > 0) revert DptRewardBalanceError();
         
         uint amount = rewardTiers[tierIndex].supply * rewardTiers[tierIndex].investment;
         if(discountDPT){
-            IERC20(addrParams.dptTokenAddress).safeTransfer(reviewer, dptOracleQuote(amount, projectParams.projectDiscountedWithdrawalFee));
-            IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, amount);
+            IERC20(addrParams.dptTokenAddress).safeTransfer(_reviewer, dptOracleQuote(amount, projectParams.projectDiscountedWithdrawalFee, addrParams));
+            IERC20(_fundToken).safeTransfer(msg.sender, amount);
         } else{
             uint feeAmount = amount *  projectParams.projectWithdrawalFee  / 1e18;
-            IERC20(addrParams.fundingTokenAddress).safeTransfer(reviewer, feeAmount);
-            IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, amount - feeAmount);
+            IERC20(_fundToken).safeTransfer(_reviewer, feeAmount);
+            IERC20(_fundToken).safeTransfer(msg.sender, amount - feeAmount);
         }
         rewardTiers[tierIndex].projectTierState = State.Successful;
         emit ChangedState(State.Successful, tierIndex);
@@ -133,13 +122,8 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
     
     // Creator or Reviewer cancels pending or ongoing tier permitting refunds to investors
     function cancel(uint tierIndex) external nonReentrant {
-        require(hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender));
-        require(rewardTiers[tierIndex].projectTierState == State.PendingApproval || rewardTiers[tierIndex].projectTierState == State.Ongoing);
-        //Burn rewards
-        for (uint i=0; i < dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId);) {
-            dopotRewardContract.burn(address(this), rewardTiers[i].tokenId, 0);
-            unchecked { i++; }
-        }
+        require((hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender)) && (rewardTiers[tierIndex].projectTierState == State.PendingApproval || rewardTiers[tierIndex].projectTierState == State.Ongoing));
+        
         rewardTiers[tierIndex].projectTierState = State.Cancelled;
         emit ChangedState(State.Cancelled, tierIndex);
     }
@@ -149,8 +133,9 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
         isInvestor();
         if(!fundingExpired(tierIndex) && rewardTiers[tierIndex].projectTierState != State.Cancelled) revert StateError();
         if(rewardTiers[tierIndex].projectTierState != State.Cancelled) if(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) == 0) revert DptRewardBalanceError();
-        require(dopotRewardContract.balanceOf(msg.sender, rewardTiers[tierIndex].tokenId) >= amount);
-        dopotRewardContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].tokenId, amount, "");
+        IDopotReward reward = dopotRewardContract;
+        require(reward.balanceOf(msg.sender, rewardTiers[tierIndex].tokenId) >= amount);
+        reward.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].tokenId, amount, "");
         IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, rewardTiers[tierIndex].investment * amount);
         emit Refunded(msg.sender, tierIndex, amount);
     }
@@ -161,6 +146,7 @@ contract Project is Initializable, AccessControl, ReentrancyGuard, IPFS{
 
     function changeState(State newState, uint tierIndex) external onlyRole(REVIEWER_ROLE) {
         rewardTiers[tierIndex].projectTierState = newState;
+        if((newState == State.Ongoing) && (fundRaisingDeadline == 45 days || fundRaisingDeadline == 65 || fundRaisingDeadline == 90 days)) fundRaisingDeadline += block.timestamp;
         emit ChangedState(newState, tierIndex);
     }
 
