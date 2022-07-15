@@ -21,6 +21,9 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
 
     event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);
     event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
+    error WhitelistError();
+    error ApprovalError();
+    error NFTError();
     constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
         transferOwnership(_projectFactoryContract);
     }
@@ -28,18 +31,18 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     function whitelistProject(address project) external onlyOwner{
         projectWhitelist[project] = true;
     }
-    modifier onlyWhitelistedProject() {
-        require(projectWhitelist[msg.sender] == true);
-        _;
+    function onlyWhitelistedProject() private view{
+        if(projectWhitelist[msg.sender] == false) revert WhitelistError();
     }
 
-    function editShippingDetails(uint256 id, bytes calldata shippingDetails) external {
-        require(balanceOf(msg.sender, id) > 0, "ERC1155: caller is not owner");
+    function editShippingDetails(uint id, bytes calldata shippingDetails) external {
+        require(balanceOf(msg.sender, id) > 0, "Not owner");
         shippingData[id][msg.sender] = shippingDetails;
     }
 
-    function mintToken(address to, string memory tokenURI, uint256 amount, bytes memory rewardTier) public onlyWhitelistedProject returns(uint256) { 
-        uint256 newItemId = _tokenIds.current(); 
+    function mintToken(address to, string memory tokenURI, uint amount, bytes memory rewardTier) public returns(uint256) { 
+        onlyWhitelistedProject();
+        uint newItemId = _tokenIds.current(); 
         mint(msg.sender, newItemId, amount, rewardTier);
         _setTokenUri(newItemId, tokenURI);
         _tokenIds.increment();
@@ -48,8 +51,9 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
         return newItemId; 
     } 
 
-    function convertToNFT(uint _tokenId, uint _tokenCount) onlyWhitelistedProject external {
-        require(rewardData[_tokenId].projectaddress == msg.sender, "Caller is not original minter");
+    function convertToNFT(uint _tokenId, uint _tokenCount) external {
+        onlyWhitelistedProject();
+        require(rewardData[_tokenId].projectaddress == msg.sender, "Not minter");
         isNFT[_tokenId] = true;
         emit RewardDelivered(_tokenId, msg.sender, _tokenCount);
     }
@@ -77,15 +81,15 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
         _mintBatch(to, ids, amounts, data);
     }
     function burn(address account, uint256 id, uint256 value) override(ERC1155Burnable) public {
-        require(account == _msgSender() || isApprovedForAll(account, _msgSender()), "ERC1155: caller is not owner nor approved");
-        require(isNFT[id] == true, "Token needs to be non fungible");
+        if(account != _msgSender() && !isApprovedForAll(account, _msgSender())) revert ApprovalError();
+        if(isNFT[id] == false) revert NFTError();
         _burn(account, id, value);
     }
 
     function burnBatch(address account, uint256[] memory ids, uint256[] memory values) override(ERC1155Burnable) public {
         require(account == _msgSender() || isApprovedForAll(account, _msgSender()), "ERC1155: caller is not owner nor approved");
         for (uint i=0; i < ids.length; i += 1) {
-            require(isNFT[ids[i]] == true, "A token needs to be non fungible");
+            if(isNFT[ids[i]] == false) revert NFTError();
         }
         _burnBatch(account, ids, values);
     }
