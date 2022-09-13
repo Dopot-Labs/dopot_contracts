@@ -6,25 +6,25 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "../IPFS.sol";
+import "../Utils.sol";
 
 
-contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
+contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
     mapping (uint256 => string) private _tokenURIs;
     mapping (uint256 => bool) public isNFT;
-    mapping (uint256 => IPFS.RewardTier) public rewardData;
+    mapping (uint256 => Utils.RewardTier) public rewardData;
     mapping(uint256 => mapping(address => bytes)) public shippingData;
     mapping (address => bool) projectWhitelist;
 
-    event RewardMinted(address to, uint256 id, uint256 amount, IPFS.RewardTier);
+    event RewardMinted(address to, uint256 id, uint256 amount, Utils.RewardTier);
     event RewardDelivered(uint256 indexed tokenId, address indexed buyer, uint256 tokenCount);
     error WhitelistError();
     error ApprovalError();
     error NFTError();
-    constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
+    constructor(address _projectFactoryContract) ERC1155("Utils://{id}") {
         transferOwnership(_projectFactoryContract);
     }
 
@@ -47,7 +47,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
         _setTokenUri(newItemId, tokenURI);
         _tokenIds.increment();
 
-        emit RewardMinted(to, newItemId, amount, IPFS.bytesToRewardTier(rewardTier));
+        emit RewardMinted(to, newItemId, amount, Utils.bytesToRewardTier(rewardTier));
         return newItemId; 
     } 
 
@@ -61,7 +61,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     function uri(uint256 _tokenID) override public view returns (string memory) {
         return string(
             abi.encodePacked(
-            "ipfs://",
+            "Utils://",
             _tokenURIs[_tokenID])
         );
     }
@@ -71,7 +71,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, IPFS {
     
     // The following functions are overrides required by Solidity.
     function mint(address account, uint256 id, uint256 amount, bytes memory data) private {
-        IPFS.RewardTier memory d = IPFS.bytesToRewardTier(data);
+        Utils.RewardTier memory d = Utils.bytesToRewardTier(data);
         d.ipfshash = "";
         d.projectaddress = msg.sender;
         _mint(account, id, amount, "");

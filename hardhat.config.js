@@ -13,7 +13,7 @@ const privateKey = process.env.PRIVATE_KEY;
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.9",
+  solidity: "0.8.12",
   gasReporter: {
     currency: 'EUR',
     enabled: true,
@@ -21,7 +21,7 @@ module.exports = {
   },
   optimizer: {
     enabled: true,
-    runs: 1
+    runs: 1//10000
   },
   etherscan: {
     apiKey: blockscanAPIkey
