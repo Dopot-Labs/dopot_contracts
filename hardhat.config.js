@@ -33,7 +33,7 @@ module.exports = {
       gas: 30000000
     },
     goerli: {
-      url: `https://rpc.goerli.mudit.blog`, // https://eth-goerli.alchemyapi.io/v2/${alchemyAPIkey}
+      url: `https://eth-goerli.g.alchemy.com/v2/${process.env.GOERLI_ALCHEMY_API_KEY}`,
       accounts: [`0x${privateKey}`],
       gas: 2100000
     },

@@ -6,6 +6,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface IPUSHCommInterface {
     function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
 }
+interface IDopotReward{ 
+    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256); 
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) external;
+    function balanceOf(address account, uint256 id) external view returns (uint256);
+    function whitelistProject(address project) external;
+}
+
 contract Utils is Seriality{
     string constant projectUpdateMsg = "Project update";
 
@@ -26,7 +33,6 @@ contract Utils is Seriality{
         address epnsChannelAddress;
     }
     struct ProjectParams {
-        uint projectMediaLimit;
         uint rewardsLimit;
         uint projectLimit; // max project to create per period
         uint postponeAmount;
@@ -93,9 +99,8 @@ contract Utils is Seriality{
         offset -= sizeUint;
         addressToBytes(offset, r.projectaddress, data);
         offset -= 20;
-        uintToBytes(offset, uint8(r.projectTierState), data);
+        uintToBytes(offset, uint(r.projectTierState), data);
     }
-
     function bytesToRewardTier(bytes memory data) pure public returns (RewardTier memory r) {
         uint offset = 244;
         uint sizeUint = sizeOfUint(256);
@@ -111,6 +116,6 @@ contract Utils is Seriality{
         offset -= sizeUint;
         r.projectaddress = bytesToAddress(offset, data);
         offset -= 20;
-        r.projectTierState = State(bytesToUint8(offset, data));
+        r.projectTierState = State(bytesToUint256(offset, data));
     }
 }
