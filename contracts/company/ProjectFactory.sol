@@ -13,7 +13,13 @@ contract ProjectFactory is Ownable, Initializable, Utils {
     
     address public projectImplementation;
     uint public projectImplementationVersion = 1;
-    mapping(address => uint) public projectsVersions;
+    
+    struct ProjectVersion {
+        address projectAddress;
+        uint version;
+    }
+    ProjectVersion[] public projectsVersions;
+
     event ProjectCreated(address indexed creator, address indexed project, string projectMedia); 
     event FrontendUpdated(string frontendHash);
     uint internal currentPeriodEnd; // block which the current period ends at
@@ -71,7 +77,7 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         address projectClone = Clones.clone(projectImplementation);
         dopotRewardContract.whitelistProject(projectClone);
         Project(projectClone).initialize(addrParams, payable(msg.sender), payable(this.owner()), fundRaisingDeadline, _projectMedia, projectParams);
-        projectsVersions[projectClone] = projectImplementationVersion;
+        projectsVersions.push( ProjectVersion(projectClone, projectImplementationVersion) );
         emit ProjectCreated(msg.sender, projectClone, _projectMedia);
         return projectClone;
     }

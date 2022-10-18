@@ -1,11 +1,11 @@
 /*  
-npx hardhat run --network goerli scripts/deploy-dopot.js
+npx hardhat run --network mumbai scripts/deploy-dopot.js
 
 npx hardhat size-contracts
 
 $DPT deployed to: 0x36c42CA9cb9d42d124368eCd60B0cBBA3ACbd2E9
-Reward deployed to: 0x6DFb21eEe069DBAf159Dd9294aBBCE64E625F8A6
-ProjectFactory deployed to: 0xC971Aee5F6FE7BBa6e117f237f2d93b7E1E4Fc35
+Reward deployed to: 0xaEE14F1B50039Cf2F6891e5E06AF9288343dFBd8
+ProjectFactory deployed to: 0xEe784386066cd3B340C6A97626B74b57009f7935
 */
 const { ethers, upgrades } = require("hardhat");
 const web3 = require("web3");
@@ -23,9 +23,9 @@ async function main() {
   console.log("Dopot deployed to:", token.address);
   */
   const ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-  const dptUniPoolAddress = "0xFE5496c407a892d150e4EA749d38c14E36da8ef1";
-  const dptTokenAddress = "0xa1f40706958f246eda3f90c0070d1dd234e2f4a2";
-  const fundingTokenContract = "0xdc31ee1784292379fbb2964b3b9c4124d8f89c60";
+  const dptUniPoolAddress = "0x71577BA8D4C4401C0db7cA91C559150Deb7Eeeed";
+  const dptTokenAddress = "0x3f7d34F9A35A993A0152D04122a45762fA774140";
+  const fundingTokenContract = "0xaFf77C74E2a3861225173C2325314842338b73e6";
 
   const projectfactory = await ProjectFactory.deploy(fundingTokenContract, dptTokenAddress, dptUniPoolAddress);
   await projectfactory.deployed();

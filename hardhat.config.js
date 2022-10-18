@@ -35,11 +35,21 @@ module.exports = {
     goerli: {
       url: `https://eth-goerli.g.alchemy.com/v2/${process.env.GOERLI_ALCHEMY_API_KEY}`,
       accounts: [`0x${privateKey}`],
-      gas: 2100000
+      gas: 30000000 
     },
     kovan: {
       url: `https://kovan.poa.network`, // https://eth-goerli.alchemyapi.io/v2/${alchemyAPIkey}
       accounts: [`0x${privateKey}`],
+      gas: 2100000
+    },
+    sepolia: {
+      url: `https://rpc.sepolia.dev`, // https://eth-goerli.alchemyapi.io/v2/${alchemyAPIkey}
+      accounts: [`0x${privateKey}`],
+      gas: 2100000
+    },
+    mumbai: {
+      url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.MUMBAI_ALCHEMY_API_KEY}`,
+      accounts:   [`0x${privateKey}`],
       gas: 2100000
     }
   },
