@@ -19,6 +19,9 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         uint version;
     }
     ProjectVersion[] public projectsVersions;
+    function getProjectsLength() external view returns (uint) {
+        return projectsVersions.length;
+    }
 
     event ProjectCreated(address indexed creator, address indexed project, string projectMedia); 
     event FrontendUpdated(string frontendHash);

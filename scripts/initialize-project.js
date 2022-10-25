@@ -9,7 +9,7 @@ async function main() {
   console.log("Initializing project with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   const ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-  const projectfactory = await ProjectFactory.attach( "0xEe784386066cd3B340C6A97626B74b57009f7935"  );
+  const projectfactory = await ProjectFactory.attach( "0xB4c0E6AFE589B4865e37E02f16BD5E5BA00398f8"  );
  
   const fundRaisingDeadline = 45 * 60 * 60 * 24;
   const investment = 2;
