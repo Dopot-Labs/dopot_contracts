@@ -7,7 +7,8 @@ interface IPUSHCommInterface {
     function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
 }
 interface IDopotReward{ 
-    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256); 
+    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256);
+    function convertToNFT(uint _tokenId, uint _tokenCount) external;
     function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function whitelistProject(address project) external;

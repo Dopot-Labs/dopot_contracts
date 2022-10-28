@@ -90,7 +90,8 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         State _projectTierState = rewardTiers[tierIndex].projectTierState;
         require(fundingExpired(tierIndex) || _projectTierState == State.Ongoing);
         address _fundToken = addrParams.fundingTokenAddress;
-        if(dopotRewardContract.balanceOf(address(this), rewardTiers[tierIndex].tokenId) != 0) revert BalanceError();
+        uint tokenId = rewardTiers[tierIndex].tokenId;
+        if(dopotRewardContract.balanceOf(address(this), tokenId) != 0) revert BalanceError();
         uint amount = rewardTiers[tierIndex].supply * rewardTiers[tierIndex].investment;
         uint feeAmount = amount *  projectParams.projectWithdrawalFee  / 1e18;
         IERC20(discountDPT ? addrParams.dptTokenAddress : _fundToken).safeTransfer(getRole(REVIEWER_ROLE), discountDPT ? dptOracleQuote(amount, projectParams.projectDiscountedWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken) : feeAmount);
