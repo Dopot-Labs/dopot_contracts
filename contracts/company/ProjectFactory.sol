@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.12;
-
 import "hardhat/console.sol";
 import "./Project.sol";
 import "../Utils.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
 contract ProjectFactory is Ownable, Initializable, Utils {
+    using SafeERC20 for IERC20;
     IDopotReward dopotRewardContract;
     string frontendHash;
     
@@ -28,7 +27,7 @@ contract ProjectFactory is Ownable, Initializable, Utils {
     uint internal currentPeriodEnd; // block which the current period ends at
     uint public currentPeriodAmount; // amount of projects already created this period
     Utils.AddrParams addrParams;
-    Utils.ProjectParams projectParams = Utils.ProjectParams(4, 20, 30 days, 1/100 * 1e18, 18/1000 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
+    Utils.ProjectParams projectParams = Utils.ProjectParams(4, 20, 30 days, 1/100 * 1e18, 4/100 * 1e18, 3/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
 
     error FundraisingValueError();
     function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
@@ -48,13 +47,14 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         addrParams.epnsContractAddress = _epnsContractAddress;
         addrParams.epnsChannelAddress = _epnsChannelAddress;
     }
-    function setProjectParams(uint _period, uint _projectLimit, uint _rewardsLimit, uint _postponeAmount, uint _postponeFee,  uint _postponeThreshold, uint _projectWithdrawalFee, uint _projectDiscountedWithdrawalFee) external onlyOwner {
+    function setProjectParams(uint _period, uint _projectLimit, uint _rewardsLimit, uint _postponeAmount, uint _postponeFee,  uint _postponeThreshold, uint _insurance, uint _projectWithdrawalFee, uint _projectDiscountedWithdrawalFee) external onlyOwner {
         projectParams.period = _period;
         projectParams.projectLimit = _projectLimit;
         projectParams.projectWithdrawalFee = _projectWithdrawalFee;
         projectParams.projectDiscountedWithdrawalFee = _projectDiscountedWithdrawalFee;
         projectParams.rewardsLimit = _rewardsLimit;
         projectParams.postponeFee = _postponeFee;
+        projectParams.insurance = _insurance;
         projectParams.postponeAmount = _postponeAmount;
         projectParams.postponeThreshold = _postponeThreshold;
     }
@@ -84,6 +84,11 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         emit ProjectCreated(msg.sender, projectClone, _projectMedia);
         return projectClone;
     }
+
+    function insurancePayout(address recipient, uint amount) external onlyOwner {
+         IERC20(addrParams.fundingTokenAddress).safeTransfer(recipient, amount);
+    }
+
 
     function updatePeriod() internal {
         if(currentPeriodEnd < block.number) {

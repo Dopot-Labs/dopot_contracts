@@ -40,6 +40,7 @@ contract Utils is Seriality{
         uint postponeFee;
         uint projectWithdrawalFee;
         uint projectDiscountedWithdrawalFee;
+        uint insurance;
         uint postponeThreshold;
         uint period;  // how many blocks before limit resets
     }
@@ -118,5 +119,8 @@ contract Utils is Seriality{
         r.projectaddress = bytesToAddress(offset, data);
         offset -= 20;
         r.projectTierState = State(bytesToUint256(offset, data));
+    }
+    function isDeadlineRange(uint _deadline) pure internal returns(bool){
+        return (_deadline == 45 days || _deadline == 65 days || _deadline == 90 days);
     }
 }

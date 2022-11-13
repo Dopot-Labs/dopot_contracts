@@ -15,6 +15,7 @@ async function main() {
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   /*
+  // MOCK TOKEN TO BE REPLACED BY XDAO LP
   const Token = await ethers.getContractFactory("Dopot");
   const token = await Token.deploy();
   await token.deployed();

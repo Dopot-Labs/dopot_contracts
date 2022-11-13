@@ -16,6 +16,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
     bytes32 public constant REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
     bytes32 public creatorPublicEncryptionKey;
     uint public fundRaisingDeadline;
+    address addrProjectFactory;
     Utils.AddrParams addrParams;
     Utils.ProjectParams projectParams;
     Utils.RewardTier[] public rewardTiers;
@@ -35,6 +36,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
 
     function initialize(Utils.AddrParams calldata _addrParams, address _creator, address _reviewer, uint _fundRaisingDeadline, string memory _projectMedia, Utils.ProjectParams memory _projectParams) external initializer nonReentrant {
         dopotRewardContract = IDopotReward(_addrParams.dopotRewardAddress);
+        addrProjectFactory = msg.sender;
         addrParams = _addrParams;
         fundRaisingDeadline = _fundRaisingDeadline;
         projectMedia = _projectMedia;
@@ -44,7 +46,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         _setupRole(CREATOR_ROLE, _creator);
     }
 
-    function addRewardTier(string memory _ipfshash, uint _investment, uint _supply) external onlyRole(CREATOR_ROLE){
+    function addRewardTier(string memory _ipfshash, uint _investment, uint _supply) external onlyRole(CREATOR_ROLE) nonReentrant {
         require(rewardTiers.length < projectParams.rewardsLimit);
         RewardTier memory temp = RewardTier(_ipfshash, 0, _investment, _supply, address(0), State.PendingApproval);
         temp.tokenId = dopotRewardContract.mintToken(address(this), _ipfshash, _supply, Utils.rewardTierToBytes(temp));
@@ -82,7 +84,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         uint _tokenId = rewardTiers[tierIndex].tokenId;
 		IERC20(addrParams.fundingTokenAddress).safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment * amount);
         dopotRewardContract.safeTransferFrom(address(this), msg.sender, _tokenId, amount, "");
-        //Utils.sendNotif(projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
+        Utils.sendNotif(projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
     }
 
     // Creator withdraws succesful project funds to wallet
@@ -94,17 +96,11 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         if(dopotRewardContract.balanceOf(address(this), tokenId) != 0) revert BalanceError();
         uint amount = rewardTiers[tierIndex].supply * rewardTiers[tierIndex].investment;
         uint feeAmount = amount *  projectParams.projectWithdrawalFee  / 1e18;
-        IERC20(discountDPT ? addrParams.dptTokenAddress : _fundToken).safeTransfer(getRole(REVIEWER_ROLE), discountDPT ? dptOracleQuote(amount, projectParams.projectDiscountedWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken) : feeAmount);
-        IERC20(_fundToken).safeTransfer(msg.sender, discountDPT? amount : amount - feeAmount);  
+        uint insuranceAmount = amount * projectParams.insurance / 1e18;
+        IERC20(discountDPT ? addrParams.dptTokenAddress : _fundToken).safeTransferFrom(discountDPT ? msg.sender : address(this), getRole(REVIEWER_ROLE), discountDPT ? dptOracleQuote(amount, projectParams.projectDiscountedWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken) : feeAmount);
+        IERC20(_fundToken).safeTransfer(msg.sender, discountDPT? amount - insuranceAmount : amount - insuranceAmount - feeAmount);
+        IERC20(_fundToken).safeTransfer(addrProjectFactory, insuranceAmount);
         changeState(State.Successful, tierIndex);
-    }
-    
-    // Creator or Reviewer cancels pending or ongoing tier permitting refunds to investors
-    function cancel(uint tierIndex) external nonReentrant {
-        State _projectTierState = rewardTiers[tierIndex].projectTierState;
-        require((hasRole(REVIEWER_ROLE, msg.sender) || hasRole(CREATOR_ROLE, msg.sender)) && (_projectTierState == State.PendingApproval || _projectTierState == State.Ongoing));
-        rewardTiers[tierIndex].projectTierState = State.Cancelled;
-        totalGoal -= rewardTiers[tierIndex].investment * rewardTiers[tierIndex].supply;
     }
 
     // Investor requests refund for rewards of specified tier
@@ -112,10 +108,8 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         isInvestor();
         IDopotReward reward = dopotRewardContract;
         uint _tokenId = rewardTiers[tierIndex].tokenId;
-        if(rewardTiers[tierIndex].projectTierState != State.Cancelled){
-            require(fundingExpired(tierIndex));
-            if(reward.balanceOf(address(this), _tokenId) == 0) revert BalanceError();
-        }
+        require(fundingExpired(tierIndex) || rewardTiers[tierIndex].projectTierState == State.Ongoing || rewardTiers[tierIndex].projectTierState == State.Cancelled);
+
         reward.safeTransferFrom(msg.sender, address(this), _tokenId, amount, "");
         IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, rewardTiers[tierIndex].investment * amount);
     }
@@ -132,14 +126,10 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         }
         emit ChangedState(newState, tierIndex);
     }
-    function isDeadlineRange(uint _deadline) pure internal returns(bool){
-        return (_deadline == 45 days || _deadline == 65 days || _deadline == 90 days);
-    }
 
     function getRole(bytes32 _role) view internal returns(address){
         return getRoleMember(_role, 0);
     }
-
     function onERC1155Received(address, address, uint, uint, bytes memory) public virtual returns (bytes4) {
         return this.onERC1155Received.selector;
     }
