@@ -6,6 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface IPUSHCommInterface {
     function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
 }
+interface IProjectFactory {
+    function emitProjectRewardTierAdded(string calldata _ipfshash) external;
+}
 interface IDopotReward{ 
     function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256);
     function convertToNFT(uint _tokenId, uint _tokenCount) external;

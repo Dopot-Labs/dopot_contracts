@@ -9,18 +9,19 @@ async function main() {
   console.log("Initializing project with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   const ProjectFactory = await ethers.getContractFactory("ProjectFactory");
-  const projectfactory = await ProjectFactory.attach( "0xB4c0E6AFE589B4865e37E02f16BD5E5BA00398f8"  );
+  const projectfactory = await ProjectFactory.attach( "0xC24D4d90747F55a57Ed1Ae8CFf8e85F7141bc22F"  );
  
   const fundRaisingDeadline = 45 * 60 * 60 * 24;
   const investment = 2;
   const amountTokens = 100;
-  const projectMedia = "0xfad3b4b8270ea30f09c1364b990db3351b2f720115b774071f4cc4e2ba25dfc2";
- /*
+  const projectMedia = "bafybeiblt47ot4baj4vl5faecqyzzmnqg3evdb7jrhiyp5adgei2ft4onm/proj.json";
+  //console.dir(await projectfactory.projectsVersions(2));
+ 
   let projecttx = await projectfactory.connect(deployer).createProject(fundRaisingDeadline, projectMedia);
   let receipt = await projecttx.wait(1);
   let projectCreatedEvent = receipt.events.pop();
   let projectaddr = projectCreatedEvent.args["project"];
-  console.log("Project Address: " + projectaddr);*/
+  console.log("Project Address: " + projectaddr);
   /*const projectaddr = "0x8A730313D169CC7c3C39c3545ca6bb603AEc97d5";
   const Project = await ethers.getContractFactory("Project");
   const project = await Project.attach(projectaddr); //projectaddr

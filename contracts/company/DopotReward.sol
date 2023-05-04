@@ -18,7 +18,8 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils 
     mapping(uint256 => mapping(address => bytes)) public shippingData;
     mapping (address => bool) projectWhitelist;
 
-    event RewardMinted(address to, uint256 id, uint256 amount, Utils.RewardTier);
+    event RewardMinted(address to, uint256 indexed id, uint256 amount, Utils.RewardTier);
+    event PermanentURI(string _value, uint256 indexed _id);
     error WhitelistError();
     error ApprovalError();
     constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
@@ -45,6 +46,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils 
         _tokenIds.increment();
 
         emit RewardMinted(to, newItemId, amount, Utils.bytesToRewardTier(rewardTier));
+        emit PermanentURI(tokenURI, newItemId);
         return newItemId; 
     } 
 
@@ -55,7 +57,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils 
             _tokenURIs[_tokenID])
         );
     }
-    function _setTokenUri(uint256 tokenId, string memory tokenURI)  private {
+    function _setTokenUri(uint256 tokenId, string memory tokenURI) private {
          _tokenURIs[tokenId] = tokenURI; 
     }
     

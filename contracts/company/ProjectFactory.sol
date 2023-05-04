@@ -22,14 +22,17 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         return projectsVersions.length;
     }
 
-    event ProjectCreated(address indexed creator, address indexed project, string projectMedia); 
+    event ProjectCreated(address indexed creator, address indexed project, string projectMedia);
+    event ProjectRewardTierAdded(string ipfshash);
     event FrontendUpdated(string frontendHash);
     uint internal currentPeriodEnd; // block which the current period ends at
     uint public currentPeriodAmount; // amount of projects already created this period
     Utils.AddrParams addrParams;
     Utils.ProjectParams projectParams = Utils.ProjectParams(4, 20, 30 days, 1/100 * 1e18, 4/100 * 1e18, 3/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
-
     error FundraisingValueError();
+    function emitProjectRewardTierAdded(string calldata _ipfshash) external{
+        emit ProjectRewardTierAdded(_ipfshash);
+    }
     function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
         projectImplementation = _projectImplementation;
         projectImplementationVersion ++;

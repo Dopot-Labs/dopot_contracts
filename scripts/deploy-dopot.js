@@ -4,8 +4,8 @@ npx hardhat run --network mumbai scripts/deploy-dopot.js
 npx hardhat size-contracts
 
 $DPT deployed to: 0x36c42CA9cb9d42d124368eCd60B0cBBA3ACbd2E9
-Reward deployed to: 0x9eD134742004732F0C163fAe86694da532814597
-ProjectFactory deployed to: 0xB4c0E6AFE589B4865e37E02f16BD5E5BA00398f8
+Reward deployed to: 0xD59829A45f38Cc6D1a10ab26307A32AE16868Cbc
+ProjectFactory deployed to: 0x4b84F9af55F9a66368817d63Ef6FA480Ee1dae51
 */
 const { ethers, upgrades } = require("hardhat");
 const web3 = require("web3");

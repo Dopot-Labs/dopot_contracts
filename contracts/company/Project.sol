@@ -52,6 +52,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard, Uti
         temp.tokenId = dopotRewardContract.mintToken(address(this), _ipfshash, _supply, Utils.rewardTierToBytes(temp));
         rewardTiers.push(temp);
         totalGoal += _investment * _supply;
+        IProjectFactory(addrProjectFactory).emitProjectRewardTierAdded(_ipfshash);
     }
 
     function fundingExpired(uint tierIndex) internal returns (bool){
