@@ -13,11 +13,11 @@ const privateKey = process.env.PRIVATE_KEY;
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.12",
+  solidity: "0.8.14",
   gasReporter: {
     currency: 'EUR',
     enabled: true,
-    gasPrice: 3
+    gasPrice: 10000000000
   },
   optimizer: {
     enabled: true,
@@ -50,7 +50,7 @@ module.exports = {
     mumbai: {
       url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.MUMBAI_ALCHEMY_API_KEY}`,
       accounts:   [`0x${privateKey}`],
-      gas: 2100000
+      gas: 6000000
     }
   },
 };

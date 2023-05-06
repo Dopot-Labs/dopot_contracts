@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.14;
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -9,9 +9,10 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../Utils.sol";
 
 
-contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils {
+contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
+    mapping(address => mapping(string => uint256)) private _totalSupplyByProjectAndURI;
 
     mapping (uint256 => string) private _tokenURIs;
     mapping (uint256 => Utils.RewardTier) public rewardData;
@@ -33,16 +34,17 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils 
         if(projectWhitelist[msg.sender] == false) revert WhitelistError();
     }
 
-    function editShippingDetails(uint id, bytes calldata shippingDetails) external {
+    function editShippingDetails(uint256 id, bytes calldata shippingDetails) external {
         require(balanceOf(msg.sender, id) > 0, "Not owner");
         shippingData[id][msg.sender] = shippingDetails;
     }
 
-    function mintToken(address to, string memory tokenURI, uint amount, bytes memory rewardTier) public returns(uint256) { 
+    function mintToken(address to, string memory tokenURI, uint256 amount, bytes memory rewardTier) public returns(uint256) { 
         onlyWhitelistedProject();
-        uint newItemId = _tokenIds.current(); 
-        mint(msg.sender, newItemId, amount, rewardTier);
+        uint256 newItemId = _tokenIds.current(); 
+        mint(to, newItemId, amount, rewardTier);
         _setTokenUri(newItemId, tokenURI);
+        _totalSupplyByProjectAndURI[msg.sender][tokenURI] += amount;
         _tokenIds.increment();
 
         emit RewardMinted(to, newItemId, amount, Utils.bytesToRewardTier(rewardTier));
@@ -68,20 +70,28 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, Utils 
         d.projectaddress = msg.sender;
         _mint(account, id, amount, "");
         rewardData[id] = d;
+        require(!(_totalSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] > rewardData[id].supply));
     }
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) public onlyOwner {
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) private {
         _mintBatch(to, ids, amounts, data);
     }
     function burn(address account, uint256 id, uint256 value) override(ERC1155Burnable) public {
-        if(account != _msgSender() && !isApprovedForAll(account, _msgSender())) revert ApprovalError();
+        onlyWhitelistedProject();
+        if(account != _msgSender() && !isApprovedForAll(account, msg.sender)) revert ApprovalError();
         _burn(account, id, value);
+        _totalSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] -= value;
     }
 
     function burnBatch(address account, uint256[] memory ids, uint256[] memory values) override(ERC1155Burnable) public {
+        revert("burnBatch function is not available");
         require(account == _msgSender() || isApprovedForAll(account, _msgSender()), "ERC1155: caller is not owner nor approved");
         _burnBatch(account, ids, values);
     }
     function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal override(ERC1155, ERC1155Supply) {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+    }
+
+    function getTotalSupplyByProjectAndTokenURI(address projectAddress, string memory tokenURI) public view returns (uint256) {
+        return _totalSupplyByProjectAndURI[projectAddress][tokenURI];
     }
 }

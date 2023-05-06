@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.14;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -17,13 +17,13 @@ contract Dopot is ERC20, Ownable, ERC20Permit, ERC20Votes  {
         _mint(msg.sender, 10000000 * 10 ** decimals());
     }
 
-    function transfer(address _to, uint _value) public validDestination(_to) override(ERC20) returns (bool)
+    function transfer(address _to, uint256 _value) public validDestination(_to) override(ERC20) returns (bool)
     {
         super.transfer(_to, _value);
         return true;
     }
 
-    function transferFrom(address _from, address _to, uint _value) public validDestination(_to) override(ERC20) returns (bool)
+    function transferFrom(address _from, address _to, uint256 _value) public validDestination(_to) override(ERC20) returns (bool)
     {
         super.transferFrom(_from, _to, _value);
         return true;

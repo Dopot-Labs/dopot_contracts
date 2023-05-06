@@ -1,34 +1,35 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.14;
 import "hardhat/console.sol";
 import "./Project.sol";
-import "../Utils.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-contract ProjectFactory is Ownable, Initializable, Utils {
+import "../Utils.sol";
+
+contract ProjectFactory is Ownable, Initializable {
     using SafeERC20 for IERC20;
     IDopotReward dopotRewardContract;
     string frontendHash;
     
     address public projectImplementation;
-    uint public projectImplementationVersion = 1;
+    uint256 public projectImplementationVersion = 1;
     
     struct ProjectVersion {
         address projectAddress;
-        uint version;
+        uint256 version;
     }
     ProjectVersion[] public projectsVersions;
-    function getProjectsLength() external view returns (uint) {
+    function getProjectsLength() external view returns (uint256) {
         return projectsVersions.length;
     }
 
     event ProjectCreated(address indexed creator, address indexed project, string projectMedia);
     event ProjectRewardTierAdded(string ipfshash);
     event FrontendUpdated(string frontendHash);
-    uint internal currentPeriodEnd; // block which the current period ends at
-    uint public currentPeriodAmount; // amount of projects already created this period
+    uint256 internal currentPeriodEnd; // block which the current period ends at
+    uint256 public currentPeriodAmount; // amount of projects already created this period
     Utils.AddrParams addrParams;
-    Utils.ProjectParams projectParams = Utils.ProjectParams(4, 20, 30 days, 1/100 * 1e18, 4/100 * 1e18, 3/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
+    Utils.ProjectParams projectParams = Utils.ProjectParams(0, 4, 20, 30 days, 1/100 * 1e18, 4/100 * 1e18, 3/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
     error FundraisingValueError();
     function emitProjectRewardTierAdded(string calldata _ipfshash) external{
         emit ProjectRewardTierAdded(_ipfshash);
@@ -39,7 +40,7 @@ contract ProjectFactory is Ownable, Initializable, Utils {
     }
     function setFrontendHash(string memory _frontendHash) external onlyOwner {
         frontendHash = _frontendHash;
-        Utils.sendNotif("Website update", string.concat("New decentralized version available at ipfs://", _frontendHash), address(0), 1, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
+        Utils.sendNotif("Website update", string(abi.encodePacked("New decentralized version available at ipfs://", _frontendHash)), address(0), 1, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
         emit FrontendUpdated(_frontendHash);
     }
     function setRewardContract(address _rewardContract) external onlyOwner{
@@ -50,7 +51,7 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         addrParams.epnsContractAddress = _epnsContractAddress;
         addrParams.epnsChannelAddress = _epnsChannelAddress;
     }
-    function setProjectParams(uint _period, uint _projectLimit, uint _rewardsLimit, uint _postponeAmount, uint _postponeFee,  uint _postponeThreshold, uint _insurance, uint _projectWithdrawalFee, uint _projectDiscountedWithdrawalFee) external onlyOwner {
+    function setProjectParams(uint256 _period, uint256 _projectLimit, uint256 _rewardsLimit, uint256 _postponeAmount, uint256 _postponeFee,  uint256 _postponeThreshold, uint256 _insurance, uint256 _projectWithdrawalFee, uint256 _projectDiscountedWithdrawalFee) external onlyOwner {
         projectParams.period = _period;
         projectParams.projectLimit = _projectLimit;
         projectParams.projectWithdrawalFee = _projectWithdrawalFee;
@@ -72,14 +73,14 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         addrParams.epnsChannelAddress = 0x277E69166D01DC241700B0e33Cd253fDDC07142E;
     }
     // fundRaisingDeadline: 45 / 65 / 90 days in number of seconds
-    function createProject(uint fundRaisingDeadline, string memory _projectMedia) external returns (address) {
+    function createProject(uint256 goal, uint256 fundRaisingDeadline, string memory _projectMedia) external returns (address) {
         updatePeriod();
-        uint totalAmount = currentPeriodAmount + 1;
+        uint256 totalAmount = currentPeriodAmount + 1;
         require(totalAmount >= currentPeriodAmount, 'overflow');
         require(currentPeriodAmount < projectParams.projectLimit, 'Project limit reached for this period');
         if(fundRaisingDeadline != 45 days && fundRaisingDeadline != 65 days && fundRaisingDeadline != 90 days) revert FundraisingValueError();
         currentPeriodAmount += 1;
-
+        projectParams.goal = goal;
         address projectClone = Clones.clone(projectImplementation);
         dopotRewardContract.whitelistProject(projectClone);
         Project(projectClone).initialize(addrParams, payable(msg.sender), payable(this.owner()), fundRaisingDeadline, _projectMedia, projectParams);
@@ -88,7 +89,7 @@ contract ProjectFactory is Ownable, Initializable, Utils {
         return projectClone;
     }
 
-    function insurancePayout(address recipient, uint amount) external onlyOwner {
+    function insurancePayout(address recipient, uint256 amount) external onlyOwner {
          IERC20(addrParams.fundingTokenAddress).safeTransfer(recipient, amount);
     }
 

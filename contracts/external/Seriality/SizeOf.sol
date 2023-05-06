@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.1;
 
 /**
  * @title SizeOf
@@ -7,9 +7,9 @@ pragma solidity ^0.8.9;
  * @author pouladzade@gmail.com
  */
 
-contract  SizeOf {
+library  SizeOf {
     
-    function sizeOfString(string memory _in) internal pure  returns(uint _size){
+    function sizeOfString(string memory _in) internal pure  returns(uint256 _size){
         _size = bytes(_in).length / 32;
          if(bytes(_in).length % 32 != 0) 
             _size++;
@@ -18,7 +18,7 @@ contract  SizeOf {
         _size *= 32;
     }
 
-    function sizeOfInt(uint16 _postfix) internal pure  returns(uint size){
+    function sizeOfInt(uint16 _postfix) internal pure  returns(uint256 size){
 
         assembly{
             switch _postfix
@@ -59,7 +59,7 @@ contract  SizeOf {
 
     }
     
-    function sizeOfUint(uint16 _postfix) internal pure  returns(uint size){
+    function sizeOfUint(uint16 _postfix) internal pure  returns(uint256 size){
         return sizeOfInt(_postfix);
     }
 
