@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 interface IProjectFactory {
     function emitProjectRewardTierAdded(string calldata _ipfshash) external;
+    function sendNotif(string memory _title, string memory _body, address _recipient, uint256 _payloadType) external;
 }
 
 interface IDopotReward{ 
@@ -28,10 +29,9 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     bytes32 public creatorPublicEncryptionKey;
     uint256 public fundRaisingDeadline;
     address addrProjectFactory;
-    Utils.AddrParams addrParams;
+    Utils.AddrParams public addrParams;
     Utils.ProjectParams public projectParams;
     Utils.RewardTier[] public rewardTiers;
-    string public projectMedia;
     bool public paused;
 
     function togglePause() external onlyRole(REVIEWER_ROLE) {
@@ -42,19 +42,18 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     event ChangedState(Utils.State newState, uint256 tierIndex);
 
     function isState(Utils.State _state, uint256 tierIndex) internal view {
-        require(rewardTiers[tierIndex].projectTierState == _state);
+        require(rewardTiers[tierIndex].projectTierState == _state, "Incorrect State");
     }
     function isInvestor() internal view {
-        require(!hasRole(CREATOR_ROLE, msg.sender) && !hasRole(REVIEWER_ROLE, msg.sender));
+        require(!hasRole(CREATOR_ROLE, msg.sender) && !hasRole(REVIEWER_ROLE, msg.sender), "Creator or reviewer");
     }
 
-    function initialize(Utils.AddrParams calldata _addrParams, address _creator, address _reviewer, uint256 _fundRaisingDeadline, string memory _projectMedia, Utils.ProjectParams memory _projectParams) external initializer nonReentrant {
+    function initialize(Utils.AddrParams calldata _addrParams, address _creator, address _reviewer, uint256 _fundRaisingDeadline, Utils.ProjectParams memory _projectParams) external initializer nonReentrant {
         dopotRewardContract = IDopotReward(_addrParams.dopotRewardAddress);
         fundingTokenContract = IERC20(_addrParams.fundingTokenAddress);
         addrProjectFactory = msg.sender;
         addrParams = _addrParams;
         fundRaisingDeadline = _fundRaisingDeadline;
-        projectMedia = _projectMedia;
         projectParams = _projectParams;
         _setupRole(DEFAULT_ADMIN_ROLE, _reviewer);
         _setupRole(REVIEWER_ROLE, _reviewer);
@@ -81,7 +80,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         if(Utils.isDeadlineRange(deadline)) return false;
         if((block.timestamp > deadline) && rewardTiers[tierIndex].projectTierState == Utils.State.Ongoing) {
             rewardTiers[tierIndex].projectTierState = Utils.State.Expired;
-            Utils.sendNotif(Utils.projectUpdateMsg, "Tier deadline reached", getRole(CREATOR_ROLE), 3, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
+            IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Tier deadline reached", getRole(CREATOR_ROLE), 3);
             emit ChangedState(Utils.State.Expired, tierIndex);
         }
         return (block.timestamp > deadline);
@@ -97,15 +96,15 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         fundRaisingDeadline += projectParams.postponeAmount;
     }
 
-    // User invests in specified reward tier 
+    // User invests in specified reward tier
     function invest (uint256 tierIndex, uint256 amount) external {
         isInvestor();
         isState(Utils.State.Ongoing, tierIndex);
-        require(!paused && !fundingExpired(tierIndex));
+        require(!paused && !fundingExpired(tierIndex), "Paused or expired");
         Utils.RewardTier memory r = rewardTiers[tierIndex];
 		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment * amount);
         r.tokenId = dopotRewardContract.mintToken(msg.sender, r.ipfshash, amount, Utils.rewardTierToBytes(r));
-        Utils.sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
+        IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3);
     }
 
     // Creator withdraws succesful project funds to wallet
@@ -140,7 +139,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         rewardTiers[tierIndex].projectTierState = newState;
         if((newState == Utils.State.Ongoing) && Utils.isDeadlineRange(fundRaisingDeadline)) {
             fundRaisingDeadline += block.timestamp;
-            Utils.sendNotif(Utils.projectUpdateMsg, "Now ongoing", getRole(CREATOR_ROLE), 3, addrParams.epnsContractAddress, addrParams.epnsChannelAddress);
+            IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Now ongoing", getRole(CREATOR_ROLE), 3);
         }
         emit ChangedState(newState, tierIndex);
     }

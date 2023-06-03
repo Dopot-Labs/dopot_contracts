@@ -6,10 +6,6 @@ import "./external/Seriality/SizeOf.sol";
 import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IPUSHCommInterface {
-    function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
-}
-
 library Utils{
     string constant projectUpdateMsg = "Project update";
 
@@ -26,8 +22,6 @@ library Utils{
         address dopotRewardAddress;
         address dptTokenAddress;
         address dptUniPoolAddress;
-        address epnsContractAddress;
-        address epnsChannelAddress;
     }
     struct ProjectParams {
         uint256 goal;
@@ -61,26 +55,7 @@ library Utils{
         if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(uint56(60 * 60 * 24)) != 0)) tick--;
         quoteAmount = OracleLibrary.getQuoteAtTick(tick, uint128(_amount *  _fee  / 1e18), _fundingTokenAddress, _dptTokenAddress);
     }
-    function sendNotif(string memory _title, string memory _body, address _recipient, uint256 _payloadType, address _epnsContractAddress, address _epnsChannelAddress) internal {
-        string memory separator = "+";
-        IPUSHCommInterface(_epnsContractAddress).sendNotification(
-            _epnsChannelAddress, //set channel via dApp and put it's value -> then once contract is deployed, add contract address as delegate for channel
-            _recipient == address(0) ? address(this) : _recipient, // address(this) if Broadcast or Subset. For Targetted put the address to which you want to send
-            bytes(
-                string(
-                    abi.encodePacked(
-                        "0", // storage type = minimal
-                        separator,
-                        _payloadType, // payload type (1, 3 or 4) = (Broadcast, targeted or subset)
-                        separator,
-                        _title,
-                        separator,
-                        _body
-                    )
-                )
-            )
-        );
-    }
+    
     function rewardTierToBytes(RewardTier memory r) pure public returns (bytes memory data) {  
         uint256 sizeUint = SizeOf.sizeOfUint(256);
         uint256 sizeOfIpfsHash = SizeOf.sizeOfString(r.ipfshash);
