@@ -34,6 +34,10 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     Utils.RewardTier[] public rewardTiers;
     bool public paused;
 
+    function getTiersLength() external view returns (uint256) {
+        return rewardTiers.length;
+    }
+
     function togglePause() external onlyRole(REVIEWER_ROLE) {
         paused = !paused;
     }
