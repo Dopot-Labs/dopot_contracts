@@ -10,6 +10,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 interface IProjectFactory {
     function emitProjectRewardTierAdded(string calldata _ipfshash) external;
+    function emitProjectInvested(address investor) external;
+    function emitProjectRefunded(address investor) external;
     function sendNotif(string memory _title, string memory _body, address _recipient, uint256 _payloadType) external;
 }
 
@@ -109,6 +111,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
 		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment * amount);
         r.tokenId = dopotRewardContract.mintToken(msg.sender, r.ipfshash, amount, Utils.rewardTierToBytes(r));
         IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3);
+        IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender);
     }
 
     // Creator withdraws succesful project funds to wallet
@@ -133,6 +136,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         require(!paused && fundingExpired(tierIndex) || rewardTiers[tierIndex].projectTierState == Utils.State.Ongoing || rewardTiers[tierIndex].projectTierState == Utils.State.Cancelled);
         dopotRewardContract.burn(msg.sender, rewardTiers[tierIndex].tokenId, amount);
         IERC20(addrParams.fundingTokenAddress).transfer(msg.sender, rewardTiers[tierIndex].investment * amount);
+        IProjectFactory(addrProjectFactory).emitProjectRefunded(msg.sender);
     }
 
     function setPublicEncryptionKey(bytes32 _creatorPublicEncryptionKey) external onlyRole(CREATOR_ROLE) {

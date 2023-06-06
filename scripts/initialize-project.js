@@ -23,8 +23,8 @@ async function main() {
   let projectCreatedEvent = receipt.events.pop();
   let projectaddr = projectCreatedEvent.args["project"];
   console.log("Project Address: " + projectaddr);      */                           
-  const projectaddr = "0x5157D5BFf37AeeB9A71d62F5BEcCABdEa1447c4e";
-  const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0x79423E4b6C6f4D99CBBE625F25E74df1886889e0" } });
+  const projectaddr = "0x477bb736c138aB6E2e9D3c6Eb445B95EBC677206";
+  const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0x4d32c50956A7eCbCeF76866dbD086EDbd0019882" } });
   const project = await Project.attach(projectaddr); //projectaddr
   //const res = await project.connect(deployer).addRewardTier("bafkreihkplf2i3crflruenv4e5rnoqy6s7mrmddf7xcvzfsb7iihsgnjre", investment, amountTokens);
   const res = await project.connect(deployer).changeState(2, 0);
