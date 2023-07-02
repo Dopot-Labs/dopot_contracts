@@ -12,42 +12,31 @@ import "../Utils.sol";
 contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
-    mapping(address => mapping(string => uint256)) private _totalSupplyByProjectAndURI;
+    mapping(address => mapping(string => uint256)) public currentSupplyByProjectAndURI;
 
     mapping (uint256 => string) private _tokenURIs;
     mapping (uint256 => Utils.RewardTier) public rewardData;
-    mapping(uint256 => mapping(address => bytes)) public shippingData;
     mapping (address => bool) projectWhitelist;
 
-    event RewardMinted(address to, uint256 indexed id, uint256 amount, Utils.RewardTier);
+    event RewardMinted(address to, uint256 indexed id, Utils.RewardTier);
     event PermanentURI(string _value, uint256 indexed _id);
-    error WhitelistError();
-    error ApprovalError();
-    constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
+    constructor(address _projectFactoryContract) ERC1155("ar://{id}") {
         transferOwnership(_projectFactoryContract);
     }
 
     function whitelistProject(address project) external onlyOwner{
         projectWhitelist[project] = true;
     }
-    function onlyWhitelistedProject() private view{
-        if(projectWhitelist[msg.sender] == false) revert WhitelistError();
-    }
 
-    function editShippingDetails(uint256 id, bytes calldata shippingDetails) external {
-        require(balanceOf(msg.sender, id) > 0, "Not owner");
-        shippingData[id][msg.sender] = shippingDetails;
-    }
-
-    function mintToken(address to, string memory tokenURI, uint256 amount, bytes memory rewardTier) public returns(uint256) { 
-        onlyWhitelistedProject();
+    function mintToken(address to, string memory tokenURI, bytes memory rewardTier) public returns(uint256) { 
+        require(projectWhitelist[msg.sender] == true, "Project not whitelisted");
         uint256 newItemId = _tokenIds.current(); 
-        mint(to, newItemId, amount, rewardTier);
+        mint(to, newItemId, 1, rewardTier);
         _setTokenUri(newItemId, tokenURI);
-        _totalSupplyByProjectAndURI[msg.sender][tokenURI] += amount;
+        currentSupplyByProjectAndURI[msg.sender][tokenURI] ++;
         _tokenIds.increment();
 
-        emit RewardMinted(to, newItemId, amount, Utils.bytesToRewardTier(rewardTier));
+        emit RewardMinted(to, newItemId, Utils.bytesToRewardTier(rewardTier));
         emit PermanentURI(tokenURI, newItemId);
         return newItemId; 
     } 
@@ -55,7 +44,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     function uri(uint256 _tokenID) override public view returns (string memory) {
         return string(
             abi.encodePacked(
-            "ipfs://",
+            "ar://",
             _tokenURIs[_tokenID])
         );
     }
@@ -66,32 +55,30 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     // The following functions are overrides required by Solidity.
     function mint(address account, uint256 id, uint256 amount, bytes memory data) private {
         Utils.RewardTier memory d = Utils.bytesToRewardTier(data);
+        require(currentSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] != d.supply, "Max supply reached");
         d.ipfshash = "";
         d.projectaddress = msg.sender;
         _mint(account, id, amount, "");
         rewardData[id] = d;
-        require(!(_totalSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] > rewardData[id].supply));
     }
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) private {
-        _mintBatch(to, ids, amounts, data);
-    }
-    function burn(address account, uint256 id, uint256 value) override(ERC1155Burnable) public {
-        onlyWhitelistedProject();
-        if(account != _msgSender() && !isApprovedForAll(account, msg.sender)) revert ApprovalError();
-        _burn(account, id, value);
-        _totalSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] -= value;
+    
+    function burn(address account, uint256 id,  uint256 value) override(ERC1155Burnable) public {
+        require(projectWhitelist[msg.sender] == true || account == _msgSender() || isApprovedForAll(account, msg.sender), "Not approved");
+        _burn(account, id, 1);
+        currentSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] --;
     }
 
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) private {
+        revert("mintBatch function is not available");
+    }
     function burnBatch(address account, uint256[] memory ids, uint256[] memory values) override(ERC1155Burnable) public {
         revert("burnBatch function is not available");
-        require(account == _msgSender() || isApprovedForAll(account, _msgSender()), "ERC1155: caller is not owner nor approved");
-        _burnBatch(account, ids, values);
     }
     function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal override(ERC1155, ERC1155Supply) {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
 
     function getTotalSupplyByProjectAndTokenURI(address projectAddress, string memory tokenURI) public view returns (uint256) {
-        return _totalSupplyByProjectAndURI[projectAddress][tokenURI];
+        return currentSupplyByProjectAndURI[projectAddress][tokenURI];
     }
 }

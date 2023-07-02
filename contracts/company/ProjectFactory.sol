@@ -30,8 +30,8 @@ contract ProjectFactory is Ownable, Initializable {
 
     event ProjectCreated(address indexed creator, address indexed project);
     event ProjectRewardTierAdded(address indexed project, string ipfshash);
-    event ProjectInvested(address indexed project, address indexed investor);
-    event ProjectRefunded(address indexed project, address indexed investor);
+    event ProjectInvested(address indexed project, address indexed investor, uint indexed tokenId);
+    event ProjectRefunded(address indexed project, address indexed investor, uint indexed tokenId);
     event FrontendUpdated(string frontendHash);
     uint256 internal currentPeriodEnd; // block which the current period ends at
     uint256 public currentPeriodAmount; // amount of projects already created this period
@@ -52,11 +52,11 @@ contract ProjectFactory is Ownable, Initializable {
     function emitProjectRewardTierAdded(string calldata _ipfshash) external isProject(msg.sender){
         emit ProjectRewardTierAdded(msg.sender, _ipfshash);
     }
-    function emitProjectInvested(address investor) external isProject(msg.sender){
-        emit ProjectInvested(msg.sender, investor);
+    function emitProjectInvested(address investor, uint tokenId) external isProject(msg.sender){
+        emit ProjectInvested(msg.sender, investor, tokenId);
     }
-    function emitProjectRefunded(address investor) external isProject(msg.sender){
-        emit ProjectRefunded(msg.sender, investor);
+    function emitProjectRefunded(address investor, uint tokenId) external isProject(msg.sender){
+        emit ProjectRefunded(msg.sender, investor, tokenId);
     }
     function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
         projectImplementation = _projectImplementation;

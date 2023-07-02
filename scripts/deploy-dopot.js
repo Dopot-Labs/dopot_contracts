@@ -3,9 +3,9 @@ npx hardhat run --network mumbai scripts/deploy-dopot.js
 
 npx hardhat size-contracts
 
-Utils lib deployed to: 0x4d32c50956A7eCbCeF76866dbD086EDbd0019882
-ProjectFactory deployed to: 0x5Fe0C969b3602118C4AdD6c2A5Ab0ae63A5896D1
-Reward deployed to: 0x261292cea511Bd6996593702d6ef2E49cB9a9a3B
+Utils lib deployed to: 0xB3967025E85C33a9179EeD5F3c115cEdd9667948
+ProjectFactory deployed to: 0xDdF6a52E6bAe584F864198790150a9B0d4634B76
+Reward deployed to: 0x92d01555b1a5a8549f5B3E5B9368419432A39DC5
 $DPT deployed to: 0x36c42CA9cb9d42d124368eCd60B0cBBA3ACbd2E9
 */
 const { ethers, upgrades } = require("hardhat");
@@ -15,7 +15,6 @@ async function main() {
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   /*
-  // MOCK TOKEN TO BE REPLACED BY XDAO LP
   const Token = await ethers.getContractFactory("Dopot");
   const token = await Token.deploy();
   await token.deployed();

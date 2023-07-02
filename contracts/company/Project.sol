@@ -10,13 +10,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 interface IProjectFactory {
     function emitProjectRewardTierAdded(string calldata _ipfshash) external;
-    function emitProjectInvested(address investor) external;
-    function emitProjectRefunded(address investor) external;
+    function emitProjectInvested(address investor, uint tokenId) external;
+    function emitProjectRefunded(address investor, uint tokenId) external;
     function sendNotif(string memory _title, string memory _body, address _recipient, uint256 _payloadType) external;
 }
 
 interface IDopotReward{ 
-    function mintToken(address to, string memory tokenURI, uint256 amount, bytes calldata rewardTier) external returns(uint256);
+    function mintToken(address to, string memory tokenURI, bytes calldata rewardTier) external returns(uint256);
     function burn(address account, uint256 id, uint256 value) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function whitelistProject(address project) external;
@@ -28,7 +28,6 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     bytes32 public constant CREATOR_ROLE = keccak256("CREATOR_ROLE");
     bytes32 public constant REVIEWER_ROLE = keccak256("REVIEWER_ROLE");
-    bytes32 public creatorPublicEncryptionKey;
     uint256 public fundRaisingDeadline;
     address addrProjectFactory;
     Utils.AddrParams public addrParams;
@@ -103,15 +102,15 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     }
 
     // User invests in specified reward tier
-    function invest (uint256 tierIndex, uint256 amount) external {
+    function invest (uint256 tierIndex) external {
         isInvestor();
         isState(Utils.State.Ongoing, tierIndex);
         require(!paused && !fundingExpired(tierIndex), "Paused or expired");
         Utils.RewardTier memory r = rewardTiers[tierIndex];
-		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment * amount);
-        r.tokenId = dopotRewardContract.mintToken(msg.sender, r.ipfshash, amount, Utils.rewardTierToBytes(r));
+		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment);
+        r.tokenId = dopotRewardContract.mintToken(msg.sender, r.ipfshash, Utils.rewardTierToBytes(r));
         IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3);
-        IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender);
+        IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender, r.tokenId);
     }
 
     // Creator withdraws succesful project funds to wallet
@@ -131,16 +130,13 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     }
 
     // Investor requests refund for rewards of specified tier
-    function refund(uint256 tierIndex, uint256 amount) external {
+    function refund(uint256 tierIndex) external {
         isInvestor();
-        require(!paused && fundingExpired(tierIndex) || rewardTiers[tierIndex].projectTierState == Utils.State.Ongoing || rewardTiers[tierIndex].projectTierState == Utils.State.Cancelled);
-        dopotRewardContract.burn(msg.sender, rewardTiers[tierIndex].tokenId, amount);
-        IERC20(addrParams.fundingTokenAddress).transfer(msg.sender, rewardTiers[tierIndex].investment * amount);
-        IProjectFactory(addrProjectFactory).emitProjectRefunded(msg.sender);
-    }
-
-    function setPublicEncryptionKey(bytes32 _creatorPublicEncryptionKey) external onlyRole(CREATOR_ROLE) {
-        creatorPublicEncryptionKey = _creatorPublicEncryptionKey;
+        require(!paused && (fundingExpired(tierIndex) || rewardTiers[tierIndex].projectTierState == Utils.State.Ongoing || rewardTiers[tierIndex].projectTierState == Utils.State.Cancelled));
+        uint tokenId = rewardTiers[tierIndex].tokenId;
+        dopotRewardContract.burn(msg.sender, tokenId, 1);
+        IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, rewardTiers[tierIndex].investment);
+        IProjectFactory(addrProjectFactory).emitProjectRefunded(msg.sender, tokenId);
     }
 
     function changeState(Utils.State newState, uint256 tierIndex) public onlyRole(REVIEWER_ROLE) {
