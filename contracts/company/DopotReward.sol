@@ -56,7 +56,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     function mint(address account, uint256 id, uint256 amount, bytes memory data) private {
         Utils.RewardTier memory d = Utils.bytesToRewardTier(data);
         require(currentSupplyByProjectAndURI[msg.sender][_tokenURIs[id]] != d.supply, "Max supply reached");
-        d.ipfshash = "";
+        d.hash = "";
         d.projectaddress = msg.sender;
         _mint(account, id, amount, "");
         rewardData[id] = d;

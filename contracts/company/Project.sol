@@ -9,10 +9,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 interface IProjectFactory {
-    function emitProjectRewardTierAdded(string calldata _ipfshash) external;
+    function emitProjectRewardTierAdded(string calldata _hash) external;
     function emitProjectInvested(address investor, uint tokenId) external;
     function emitProjectRefunded(address investor, uint tokenId) external;
     function sendNotif(string memory _title, string memory _body, address _recipient, uint256 _payloadType) external;
+    function emitChangedState(Utils.State newState) external;
 }
 
 interface IDopotReward{ 
@@ -34,6 +35,7 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     Utils.ProjectParams public projectParams;
     Utils.RewardTier[] public rewardTiers;
     bool public paused;
+    Utils.State public state;
 
     function getTiersLength() external view returns (uint256) {
         return rewardTiers.length;
@@ -43,11 +45,8 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         paused = !paused;
     }
     
-    // rewardTierIndex -> totInvested
-    event ChangedState(Utils.State newState, uint256 tierIndex);
-
-    function isState(Utils.State _state, uint256 tierIndex) internal view {
-        require(rewardTiers[tierIndex].projectTierState == _state, "Incorrect State");
+    function isState(Utils.State _state) internal view {
+        require(state == _state, "Incorrect State");
     }
     function isInvestor() internal view {
         require(!hasRole(CREATOR_ROLE, msg.sender) && !hasRole(REVIEWER_ROLE, msg.sender), "Creator or reviewer");
@@ -65,35 +64,34 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         _setupRole(CREATOR_ROLE, _creator);
     }
 
-    function isIpfsHashUnique(string memory ipfsHash) public view returns (bool) {
+    function isHashUnique(string memory hash) public view returns (bool) {
         for (uint256 i = 0; i < rewardTiers.length; i++) {
-            if (keccak256(abi.encodePacked(rewardTiers[i].ipfshash)) == keccak256(abi.encodePacked(ipfsHash))) {
+            if (keccak256(abi.encodePacked(rewardTiers[i].hash)) == keccak256(abi.encodePacked(hash))) {
                 return false;
             }
         }
         return true;
     }
 
-    function addRewardTier(string memory _ipfshash, uint256 _investment, uint256 _supply) external onlyRole(CREATOR_ROLE) nonReentrant {
-        require(!paused && rewardTiers.length < projectParams.rewardsLimit && isIpfsHashUnique(_ipfshash));
-        rewardTiers.push(Utils.RewardTier(_ipfshash, 0, _investment, _supply, address(0), Utils.State.PendingApproval));
-        IProjectFactory(addrProjectFactory).emitProjectRewardTierAdded(_ipfshash);
+    function addRewardTier(string memory _hash, uint256 _investment, uint256 _supply) external onlyRole(CREATOR_ROLE) nonReentrant {
+        require(!paused && rewardTiers.length < projectParams.rewardsLimit && isHashUnique(_hash));
+        rewardTiers.push(Utils.RewardTier(_hash, 0, _investment, _supply, address(0)));
+        IProjectFactory(addrProjectFactory).emitProjectRewardTierAdded(_hash);
     }
 
-    function fundingExpired(uint256 tierIndex) internal returns (bool){
+    function fundingExpired() internal returns (bool){
         uint256 deadline = fundRaisingDeadline;
         if(Utils.isDeadlineRange(deadline)) return false;
-        if((block.timestamp > deadline) && rewardTiers[tierIndex].projectTierState == Utils.State.Ongoing) {
-            rewardTiers[tierIndex].projectTierState = Utils.State.Expired;
+        if((block.timestamp > deadline) && state == Utils.State.Ongoing) {
+            state = Utils.State.Expired;
             IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Tier deadline reached", getRole(CREATOR_ROLE), 3);
-            emit ChangedState(Utils.State.Expired, tierIndex);
+            IProjectFactory(addrProjectFactory).emitChangedState(Utils.State.Expired);
         }
         return (block.timestamp > deadline);
     }
     // Creator pays to postpone deadline
-    // tierIndexOngoing: index of an ongoing tier
-    function postponeDeadline(uint256 tierIndexOngoing) external onlyRole(CREATOR_ROLE) nonReentrant{
-        isState(Utils.State.Ongoing, tierIndexOngoing);
+    function postponeDeadline() external onlyRole(CREATOR_ROLE) nonReentrant{
+        isState(Utils.State.Ongoing);
         address _dptTokenAddress = addrParams.dptTokenAddress;
         uint256 fundingTokenBalance = fundingTokenContract.balanceOf(address(this));
         require(!paused && fundingTokenBalance >= (projectParams.goal  *  projectParams.postponeThreshold / 1e18));
@@ -104,11 +102,11 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
     // User invests in specified reward tier
     function invest (uint256 tierIndex) external {
         isInvestor();
-        isState(Utils.State.Ongoing, tierIndex);
-        require(!paused && !fundingExpired(tierIndex), "Paused or expired");
+        isState(Utils.State.Ongoing);
+        require(!paused && !fundingExpired(), "Paused or expired");
         Utils.RewardTier memory r = rewardTiers[tierIndex];
 		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment);
-        r.tokenId = dopotRewardContract.mintToken(msg.sender, r.ipfshash, Utils.rewardTierToBytes(r));
+        r.tokenId = dopotRewardContract.mintToken(msg.sender, r.hash, Utils.rewardTierToBytes(r));
         IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", getRole(CREATOR_ROLE), 3);
         IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender, r.tokenId);
     }
@@ -124,28 +122,26 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
         IERC20(discountDPT ? addrParams.dptTokenAddress : _fundToken).safeTransferFrom(discountDPT ? msg.sender : address(this), getRole(REVIEWER_ROLE), discountDPT ? Utils.dptOracleQuote(balance, projectParams.projectDiscountedWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken) : feeAmount);
         _fundingTokenContract.safeTransfer(msg.sender, discountDPT? balance - insuranceAmount : balance - insuranceAmount - feeAmount);
         _fundingTokenContract.safeTransfer(addrProjectFactory, insuranceAmount);
-        for(uint256 i = 0; i < rewardTiers.length; i++){
-            changeState(Utils.State.Successful, i);
-        }
+        changeState(Utils.State.Successful);
     }
 
     // Investor requests refund for rewards of specified tier
     function refund(uint256 tierIndex) external {
         isInvestor();
-        require(!paused && (fundingExpired(tierIndex) || rewardTiers[tierIndex].projectTierState == Utils.State.Ongoing || rewardTiers[tierIndex].projectTierState == Utils.State.Cancelled));
+        require(!paused && (fundingExpired() || state == Utils.State.Ongoing || state == Utils.State.Cancelled));
         uint tokenId = rewardTiers[tierIndex].tokenId;
         dopotRewardContract.burn(msg.sender, tokenId, 1);
         IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, rewardTiers[tierIndex].investment);
         IProjectFactory(addrProjectFactory).emitProjectRefunded(msg.sender, tokenId);
     }
 
-    function changeState(Utils.State newState, uint256 tierIndex) public onlyRole(REVIEWER_ROLE) {
-        rewardTiers[tierIndex].projectTierState = newState;
+    function changeState(Utils.State newState) public onlyRole(REVIEWER_ROLE) {
+        state = newState;
         if((newState == Utils.State.Ongoing) && Utils.isDeadlineRange(fundRaisingDeadline)) {
             fundRaisingDeadline += block.timestamp;
             IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Now ongoing", getRole(CREATOR_ROLE), 3);
         }
-        emit ChangedState(newState, tierIndex);
+        IProjectFactory(addrProjectFactory).emitChangedState(newState);
     }
 
     function getRole(bytes32 _role) view internal returns(address){

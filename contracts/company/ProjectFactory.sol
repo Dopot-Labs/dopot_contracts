@@ -13,7 +13,6 @@ interface IPUSHCommInterface {
 contract ProjectFactory is Ownable, Initializable {
     using SafeERC20 for IERC20;
     IDopotReward dopotRewardContract;
-    string frontendHash;
     
     address public projectImplementation;
     uint256 public projectImplementationVersion = 1;
@@ -29,14 +28,15 @@ contract ProjectFactory is Ownable, Initializable {
     }
 
     event ProjectCreated(address indexed creator, address indexed project);
-    event ProjectRewardTierAdded(address indexed project, string ipfshash);
+    event ProjectRewardTierAdded(address indexed project, string hash);
     event ProjectInvested(address indexed project, address indexed investor, uint indexed tokenId);
     event ProjectRefunded(address indexed project, address indexed investor, uint indexed tokenId);
-    event FrontendUpdated(string frontendHash);
+    event ChangedState(Utils.State newState, address project);
+
     uint256 internal currentPeriodEnd; // block which the current period ends at
     uint256 public currentPeriodAmount; // amount of projects already created this period
     Utils.AddrParams addrParams;
-    Utils.ProjectParams projectParams = Utils.ProjectParams(0, 4, 20, 30 days, 1/100 * 1e18, 4/100 * 1e18, 3/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
+    Utils.ProjectParams projectParams = Utils.ProjectParams(0, 4, 20, 30 days, 4/100 * 1e18, 5/100 * 1e18, 2/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
     error FundraisingValueError();
     modifier isProject(address _addr){
         bool found = false;
@@ -49,8 +49,8 @@ contract ProjectFactory is Ownable, Initializable {
         require(found);
         _;
     }
-    function emitProjectRewardTierAdded(string calldata _ipfshash) external isProject(msg.sender){
-        emit ProjectRewardTierAdded(msg.sender, _ipfshash);
+    function emitProjectRewardTierAdded(string calldata _hash) external isProject(msg.sender){
+        emit ProjectRewardTierAdded(msg.sender, _hash);
     }
     function emitProjectInvested(address investor, uint tokenId) external isProject(msg.sender){
         emit ProjectInvested(msg.sender, investor, tokenId);
@@ -58,14 +58,12 @@ contract ProjectFactory is Ownable, Initializable {
     function emitProjectRefunded(address investor, uint tokenId) external isProject(msg.sender){
         emit ProjectRefunded(msg.sender, investor, tokenId);
     }
+    function emitChangedState(Utils.State newState) external isProject(msg.sender){
+        emit ChangedState(newState, msg.sender);
+    }
     function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
         projectImplementation = _projectImplementation;
         projectImplementationVersion ++;
-    }
-    function setFrontendHash(string memory _frontendHash) external onlyOwner {
-        frontendHash = _frontendHash;
-        sendNotif("Website update", string(abi.encodePacked("New decentralized version available at ipfs://", _frontendHash)), address(0), 1);
-        emit FrontendUpdated(_frontendHash);
     }
     function setRewardContract(address _rewardContract) external onlyOwner{
         dopotRewardContract = IDopotReward(_rewardContract);

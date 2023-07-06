@@ -36,12 +36,11 @@ library Utils{
         uint256 period;  // how many blocks before limit resets
     }
     struct RewardTier {
-        string ipfshash;
+        string hash;
         uint256 tokenId;
         uint256 investment;
         uint256 supply;
         address projectaddress;
-        State projectTierState;
     }
 
     function dptOracleQuote(uint256 _amount, uint256 _fee, address _dptTokenAddress, address _dptUniPoolAddress, address _fundingTokenAddress) internal view returns (uint256 quoteAmount){
@@ -58,13 +57,13 @@ library Utils{
     
     function rewardTierToBytes(RewardTier memory r) pure public returns (bytes memory data) {  
         uint256 sizeUint = SizeOf.sizeOfUint(256);
-        uint256 sizeOfIpfsHash = SizeOf.sizeOfString(r.ipfshash);
-        uint256 _size = sizeOfIpfsHash + sizeUint + sizeUint + sizeUint + 20 + 6; 
+        uint256 sizeOfHash = SizeOf.sizeOfString(r.hash);
+        uint256 _size = sizeOfHash + sizeUint + sizeUint + sizeUint + 20 + 6; 
         data = new bytes(32 + _size);
         uint256 offset = 244;
 
-        TypesToBytes.stringToBytes(offset, bytes(r.ipfshash), data);
-        offset -= sizeOfIpfsHash;
+        TypesToBytes.stringToBytes(offset, bytes(r.hash), data);
+        offset -= sizeOfHash;
         TypesToBytes.uintToBytes(offset, r.tokenId, data);
         offset -= sizeUint;
         TypesToBytes.uintToBytes(offset, r.investment, data);
@@ -73,15 +72,14 @@ library Utils{
         offset -= sizeUint;
         TypesToBytes.addressToBytes(offset, r.projectaddress, data);
         offset -= 20;
-        TypesToBytes.uintToBytes(offset, uint256(r.projectTierState), data);
     }
     function bytesToRewardTier(bytes memory data) pure public returns (RewardTier memory r) {
         uint256 offset = 244;
         uint256 sizeUint = SizeOf.sizeOfUint(256);
 
-        r.ipfshash = new string (BytesToTypes.getStringSize(offset, data));
-        BytesToTypes.bytesToString(offset, data, bytes(r.ipfshash));
-        offset -= SizeOf.sizeOfString(r.ipfshash);
+        r.hash = new string (BytesToTypes.getStringSize(offset, data));
+        BytesToTypes.bytesToString(offset, data, bytes(r.hash));
+        offset -= SizeOf.sizeOfString(r.hash);
         r.tokenId = BytesToTypes.bytesToUint256(offset, data);
         offset -= sizeUint;
         r.investment = BytesToTypes.bytesToUint256(offset, data);
@@ -90,7 +88,6 @@ library Utils{
         offset -= sizeUint;
         r.projectaddress = BytesToTypes.bytesToAddress(offset, data);
         offset -= 20;
-        r.projectTierState = State(BytesToTypes.bytesToUint256(offset, data));
     }
     function isDeadlineRange(uint256 _deadline) pure internal returns(bool){
         return (_deadline == 45 days || _deadline == 65 days || _deadline == 90 days);
