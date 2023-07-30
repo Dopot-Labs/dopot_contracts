@@ -137,7 +137,8 @@ contract Project is Initializable, AccessControlEnumerable, ReentrancyGuard {
 
     function changeState(Utils.State newState) public onlyRole(REVIEWER_ROLE) {
         state = newState;
-        if((newState == Utils.State.Ongoing) && Utils.isDeadlineRange(fundRaisingDeadline)) {
+        if((newState == Utils.State.Ongoing) ) {
+            require(Utils.isDeadlineRange(fundRaisingDeadline), "Invalid deadline");
             fundRaisingDeadline += block.timestamp;
             IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Now ongoing", getRole(CREATOR_ROLE), 3);
         }
