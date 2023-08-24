@@ -27,8 +27,8 @@ async function main() {
   console.log("Utils deployed to:", utils.address);
 
   const ProjectFactory = await ethers.getContractFactory("ProjectFactory", { libraries: {  Utils: utils.address }  });
-  const dptUniPoolAddress = "0x0172fd18154e334b88922a09e1c498ae2a4b45cf";
-  const dptTokenAddress = "0x3f7d34F9A35A993A0152D04122a45762fA774140";
+  const dptUniPoolAddress = "0x4b3B39d57bCf8bA665789E09837B1B1229758F4c"; // getPool on Uni v3 factory
+  const dptTokenAddress = "0x1f0901F4a2d4ddAD4b9cBBC25d70E22fa0976fB8";
   const fundingTokenContract = "0xdf5e77cB650DA50c0fe5C8A162DfD4F36C1B5Ec2";
 
   const projectfactory = await ProjectFactory.deploy(fundingTokenContract, dptTokenAddress, dptUniPoolAddress);

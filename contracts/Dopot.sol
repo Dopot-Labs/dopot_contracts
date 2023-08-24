@@ -14,7 +14,7 @@ contract Dopot is ERC20, Ownable, ERC20Permit, ERC20Votes  {
         _;
     }
    constructor() ERC20("Dopot", "DPT") ERC20Permit("Dopot") {
-        _mint(msg.sender, 10000000 * 10 ** decimals());
+        _mint(msg.sender, 120000000 * 10 ** decimals());
     }
 
     function transfer(address _to, uint256 _value) public validDestination(_to) override(ERC20) returns (bool)
