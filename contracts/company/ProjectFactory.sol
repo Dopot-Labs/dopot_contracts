@@ -84,6 +84,14 @@ contract ProjectFactory is Ownable, Initializable {
         projectParams.postponeAmount = _postponeAmount;
         projectParams.postponeThreshold = _postponeThreshold;
     }
+
+    function setAddrParam(address _fundingTokenAddress, address _dopotRewardAddress, address _dptTokenAddress, address _dptUniPoolAddress, address _reviewer) external onlyOwner {
+        addrParams.fundingTokenAddress = _fundingTokenAddress;
+        addrParams.dopotRewardAddress = _dopotRewardAddress;
+        addrParams.dptTokenAddress = _dptTokenAddress;
+        addrParams.dptUniPoolAddress = _dptUniPoolAddress;
+        addrParams.reviewer = _reviewer;
+    }
     
     constructor(address _fundingTokenAddress, address _dptTokenAddress, address _dptUniPoolAddress) {
         currentPeriodEnd = block.number + projectParams.period;
@@ -91,6 +99,7 @@ contract ProjectFactory is Ownable, Initializable {
         addrParams.dptTokenAddress = _dptTokenAddress;
         addrParams.fundingTokenAddress = _fundingTokenAddress;
         addrParams.dptUniPoolAddress = _dptUniPoolAddress;
+        addrParams.reviewer = msg.sender;
         epnsContractAddress = 0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa; // mumbai
         epnsChannelAddress = 0x340cb0AA007F2ECbF6fCe3cd8929a22429893213;
     }
@@ -105,7 +114,8 @@ contract ProjectFactory is Ownable, Initializable {
         projectParams.goal = goal;
         address projectClone = Clones.clone(projectImplementation);
         dopotRewardContract.whitelistProject(projectClone);
-        Project(projectClone).initialize(addrParams, payable(msg.sender), payable(this.owner()), fundRaisingDeadline, projectParams);
+        addrParams.creator = msg.sender;
+        Project(projectClone).initialize(msg.sender, addrParams, fundRaisingDeadline, projectParams);
         projectsVersions.push( ProjectVersion(projectClone, projectImplementationVersion) );
         emit ProjectCreated(msg.sender, projectClone);
         return projectClone;

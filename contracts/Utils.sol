@@ -22,6 +22,8 @@ library Utils{
         address dopotRewardAddress;
         address dptTokenAddress;
         address dptUniPoolAddress;
+        address creator;
+        address reviewer;
     }
     struct ProjectParams {
         uint256 goal;
@@ -43,7 +45,7 @@ library Utils{
         address projectaddress;
     }
 
-    function dptOracleQuote(uint256 _amount, uint256 _fee, address _dptTokenAddress, address _dptUniPoolAddress, address _fundingTokenAddress) internal view returns (uint256 quoteAmount){
+    function dptOracleQuote(uint256 _amount, uint256 _fee, address _dptTokenAddress, address _dptUniPoolAddress, address _fundingTokenAddress) public view returns (uint256 quoteAmount){
         //secondsAgo: 60 * 60 * 24 (24h)
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = 60 * 60 * 24;
