@@ -24,8 +24,8 @@ async function main() {
   let projectaddr = projectCreatedEvent.args["project"];
   console.log("Project Address: " + projectaddr);       */  
   try{                        
-  const projectaddr = "0x3F18560Af3fF4617eD1dBeA7c0D8e25b47C67Fd9";
-  const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0xd450Da03c472595C9Fd9E92121a3034697DF2593" } });
+  const projectaddr = "0x30E1A94137E3DdBAa791F58e68DcE7B3C3e17bE2";
+  const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0x0d2365047431B434A8Fe1429dAe99e77Be6c0D35" } });
   const project = await Project.attach(projectaddr); //projectaddr
   //const res = await project.connect(deployer).addRewardTier("bafkreihkplf2i3crflruenv4e5rnoqy6s7mrmddf7xcvzfsb7iihsgnjre", investment, amountTokens);
   const res = await project.connect(deployer).changeState(2);

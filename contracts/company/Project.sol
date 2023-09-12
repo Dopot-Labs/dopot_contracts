@@ -108,6 +108,7 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
         Utils.RewardTier memory r = rewardTiers[tierIndex];
 		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment);
         r.tokenId = dopotRewardContract.mintToken(msg.sender, r.hash, Utils.rewardTierToBytes(r));
+        rewardTiers[tierIndex] = r;
         IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", addrParams.creator, 3);
         IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender, r.tokenId);
     }
