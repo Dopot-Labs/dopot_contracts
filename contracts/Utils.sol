@@ -39,7 +39,6 @@ library Utils{
     }
     struct RewardTier {
         string hash;
-        uint256 tokenId;
         uint256 investment;
         uint256 supply;
         address projectaddress;
@@ -66,8 +65,6 @@ library Utils{
 
         TypesToBytes.stringToBytes(offset, bytes(r.hash), data);
         offset -= sizeOfHash;
-        TypesToBytes.uintToBytes(offset, r.tokenId, data);
-        offset -= sizeUint;
         TypesToBytes.uintToBytes(offset, r.investment, data);
         offset -= sizeUint;
         TypesToBytes.uintToBytes(offset, r.supply, data);
@@ -82,8 +79,6 @@ library Utils{
         r.hash = new string (BytesToTypes.getStringSize(offset, data));
         BytesToTypes.bytesToString(offset, data, bytes(r.hash));
         offset -= SizeOf.sizeOfString(r.hash);
-        r.tokenId = BytesToTypes.bytesToUint256(offset, data);
-        offset -= sizeUint;
         r.investment = BytesToTypes.bytesToUint256(offset, data);
         offset -= sizeUint;
         r.supply = BytesToTypes.bytesToUint256(offset, data);

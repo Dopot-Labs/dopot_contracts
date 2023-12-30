@@ -21,6 +21,7 @@ interface IDopotReward{
     function burn(address account, uint256 id, uint256 value) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function whitelistProject(address project) external;
+    function getRewardData(uint256 id) external view returns (Utils.RewardTier memory);
 }
 
 contract Project is Initializable, Ownable, ReentrancyGuard {
@@ -76,7 +77,7 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
 
     function addRewardTier(string memory _hash, uint256 _investment, uint256 _supply) external onlyRole(addrParams.creator) nonReentrant {
         require(!paused && rewardTiers.length < projectParams.rewardsLimit && isHashUnique(_hash));
-        rewardTiers.push(Utils.RewardTier(_hash, 0, _investment, _supply, address(0)));
+        rewardTiers.push(Utils.RewardTier(_hash, _investment, _supply, address(0)));
         IProjectFactory(addrProjectFactory).emitProjectRewardTierAdded(_hash);
     }
 
@@ -107,10 +108,10 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
         require(!paused && !fundingExpired(), "Paused or expired");
         Utils.RewardTier memory r = rewardTiers[tierIndex];
 		fundingTokenContract.safeTransferFrom(msg.sender, address(this), rewardTiers[tierIndex].investment);
-        r.tokenId = dopotRewardContract.mintToken(msg.sender, r.hash, Utils.rewardTierToBytes(r));
+        uint tokenId = dopotRewardContract.mintToken(msg.sender, r.hash, Utils.rewardTierToBytes(r));
         rewardTiers[tierIndex] = r;
         IProjectFactory(addrProjectFactory).sendNotif(Utils.projectUpdateMsg, "Someone invested in your project", addrParams.creator, 3);
-        IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender, r.tokenId);
+        IProjectFactory(addrProjectFactory).emitProjectInvested(msg.sender, tokenId);
     }
 
     // Creator withdraws succesful project funds to wallet
@@ -128,13 +129,12 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
         IProjectFactory(addrProjectFactory).emitChangedState(state);
     }
 
-    // Investor requests refund for rewards of specified tier
-    function refund(uint256 tierIndex) external {
+    // Investor requests refund for specified reward
+    function refund(uint256 tokenId) external {
         isInvestor();
         require(!paused && (fundingExpired() || state == Utils.State.Ongoing || state == Utils.State.Cancelled), "Paused/Successful");
-        uint tokenId = rewardTiers[tierIndex].tokenId;
         dopotRewardContract.burn(msg.sender, tokenId, 1);
-        IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, rewardTiers[tierIndex].investment);
+        IERC20(addrParams.fundingTokenAddress).safeTransfer(msg.sender, dopotRewardContract.getRewardData(tokenId).investment);
         IProjectFactory(addrProjectFactory).emitProjectRefunded(msg.sender, tokenId);
     }
 

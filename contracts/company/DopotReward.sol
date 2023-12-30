@@ -20,6 +20,12 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
 
     event RewardMinted(address to, uint256 indexed id, Utils.RewardTier);
     event PermanentURI(string _value, uint256 indexed _id);
+
+    // Function to retrieve RewardTier for a given id
+    function getRewardData(uint256 id) external view returns (Utils.RewardTier memory) {
+        return rewardData[id];
+    }
+
     constructor(address _projectFactoryContract) ERC1155("ar://{id}") {
         transferOwnership(_projectFactoryContract);
     }
