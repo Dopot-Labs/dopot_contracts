@@ -36,7 +36,16 @@ contract ProjectFactory is Ownable, Initializable {
     uint256 internal currentPeriodEnd; // block which the current period ends at
     uint256 public currentPeriodAmount; // amount of projects already created this period
     Utils.AddrParams addrParams;
-    Utils.ProjectParams projectParams = Utils.ProjectParams(0, 4, 20, 30 days, 4/100 * 1e18, 5/100 * 1e18, 2/100 * 1e18, 1/100 * 1e18, 51/100 * 1e18, 39272); // Polygon blocks per day
+    Utils.ProjectParams projectParams = Utils.ProjectParams(0, 
+    4,              // rewardsLimit
+    20,             // projectLimit
+    30 days,        // postponeAmount
+    4/100 * 1e18,   // postponeFee
+    2/100 * 1e18,   // projectWithdrawalFee
+    1/100 * 1e18,   // projectStakingReward
+    1/100 * 1e18,   // insurance
+    51/100 * 1e18,  // postponeThreshold
+    39272);         // Polygon blocks per day TODO: change to arbitrum one
     error FundraisingValueError();
     modifier isProject(address _addr){
         bool found = false;
@@ -73,11 +82,11 @@ contract ProjectFactory is Ownable, Initializable {
         epnsContractAddress = _epnsContractAddress;
         epnsChannelAddress = _epnsChannelAddress;
     }
-    function setProjectParams(uint256 _period, uint256 _projectLimit, uint256 _rewardsLimit, uint256 _postponeAmount, uint256 _postponeFee,  uint256 _postponeThreshold, uint256 _insurance, uint256 _projectWithdrawalFee, uint256 _projectDiscountedWithdrawalFee) external onlyOwner {
+    function setProjectParams(uint256 _period, uint256 _projectLimit, uint256 _rewardsLimit, uint256 _postponeAmount, uint256 _postponeFee,  uint256 _postponeThreshold, uint256 _insurance, uint256 _projectWithdrawalFee, uint256 _projectStakingReward) external onlyOwner {
         projectParams.period = _period;
         projectParams.projectLimit = _projectLimit;
         projectParams.projectWithdrawalFee = _projectWithdrawalFee;
-        projectParams.projectDiscountedWithdrawalFee = _projectDiscountedWithdrawalFee;
+        projectParams.projectStakingReward = _projectStakingReward;
         projectParams.rewardsLimit = _rewardsLimit;
         projectParams.postponeFee = _postponeFee;
         projectParams.insurance = _insurance;
@@ -93,15 +102,15 @@ contract ProjectFactory is Ownable, Initializable {
         addrParams.reviewer = _reviewer;
     }
     
-    constructor(address _fundingTokenAddress, address _dptTokenAddress, address _dptUniPoolAddress) {
+    constructor(address _fundingTokenAddress, address _dptTokenAddress, address _dptUniPoolAddress) { // TODO: deploy to arbitrum with 0x0 as dpt token and pool
         currentPeriodEnd = block.number + projectParams.period;
         projectImplementation = address(new Project());
         addrParams.dptTokenAddress = _dptTokenAddress;
         addrParams.fundingTokenAddress = _fundingTokenAddress;
         addrParams.dptUniPoolAddress = _dptUniPoolAddress;
         addrParams.reviewer = msg.sender;
-        epnsContractAddress = 0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa; // mumbai
-        epnsChannelAddress = 0x340cb0AA007F2ECbF6fCe3cd8929a22429893213;
+        epnsContractAddress = 0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa; // mumbai TODO: change to arbitrum one
+        epnsChannelAddress = 0x340cb0AA007F2ECbF6fCe3cd8929a22429893213; // TODO: create and change to arbitrum one
     }
     // fundRaisingDeadline: 45 / 65 / 90 days in number of seconds
     function createProject(uint256 goal, uint256 fundRaisingDeadline) external returns (address) {

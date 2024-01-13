@@ -32,7 +32,7 @@ library Utils{
         uint256 postponeAmount;
         uint256 postponeFee;
         uint256 projectWithdrawalFee;
-        uint256 projectDiscountedWithdrawalFee;
+        uint256 projectStakingReward;
         uint256 insurance;
         uint256 postponeThreshold;
         uint256 period;  // how many blocks before limit resets

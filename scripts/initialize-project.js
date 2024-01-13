@@ -25,7 +25,7 @@ async function main() {
   console.log("Project Address: " + projectaddr);       */  
   try{                        
   const projectaddr = "0x30E1A94137E3DdBAa791F58e68DcE7B3C3e17bE2";
-  const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0x0d2365047431B434A8Fe1429dAe99e77Be6c0D35" } });
+  const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0x080c64680c9F67394a60313257b8aedD0ccE8cDF" } });
   const project = await Project.attach(projectaddr); //projectaddr
   //const res = await project.connect(deployer).addRewardTier("bafkreihkplf2i3crflruenv4e5rnoqy6s7mrmddf7xcvzfsb7iihsgnjre", investment, amountTokens);
   const res = await project.connect(deployer).changeState(2);
@@ -42,9 +42,8 @@ async function main() {
   var _fundToken = "0xdf5e77cB650DA50c0fe5C8A162DfD4F36C1B5Ec2";
   var dptTokenAddress = "0x1f0901F4a2d4ddAD4b9cBBC25d70E22fa0976fB8";
   var dptUniPoolAddress = "0x4b3B39d57bCf8bA665789E09837B1B1229758F4c";
-  var projectDiscountedWithdrawalFee =  ethers.utils.parseEther('0.02');
   var balance = ethers.utils.parseEther("100");
-  const result = await utils.dptOracleQuote(balance, projectDiscountedWithdrawalFee, dptTokenAddress, dptUniPoolAddress, _fundToken);
+  const result = await utils.dptOracleQuote(balance, projectWithdrawalFee, dptTokenAddress, dptUniPoolAddress, _fundToken);
   console.log("fee to pay in dpt: " +(result));
 
   const Dopot = await ethers.getContractFactory("Dopot");
