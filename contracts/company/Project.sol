@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 interface IProjectFactory {
     function emitProjectRewardTierAdded(string calldata _hash) external;
     function emitProjectInvested(address investor, uint tokenId) external;
@@ -42,10 +41,24 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
         require(state == _state, "Incorrect State");
     }
 
-    function dptAddressesSet() internal view returns (bool) {
+    function dptAddressesSet() public view returns (bool) {
         return (addrParams.dptTokenAddress != address(0x0) && addrParams.dptUniPoolAddress != address(0x0));
     }
-   
+
+    function getWithdrawalFee() public view returns (uint256) {
+        address _fundToken = addrParams.fundingTokenAddress;
+        IERC20 _fundingTokenContract = fundingTokenContract;
+        uint256 balance = _fundingTokenContract.balanceOf(address(this));
+        return Utils.dptOracleQuote(balance, projectParams.projectWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken);
+    }
+
+    function getStakingRewards() public view returns (uint256) {
+        address _fundToken = addrParams.fundingTokenAddress;
+        IERC20 _fundingTokenContract = fundingTokenContract;
+        uint256 balance = _fundingTokenContract.balanceOf(address(this));
+        return Utils.dptOracleQuote(balance, projectParams.projectStakingReward, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken);
+    }
+
     function stake(uint amount) external nonReentrant {
         require(dptAddressesSet(), "Dpt addresses not set");
         require(amount > 0, "Must stake above 0");
@@ -110,7 +123,9 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
     }
 
     function addRewardTier(string memory _hash, uint256 _investment, uint256 _supply) external onlyRole(addrParams.creator) nonReentrant {
-        require(!paused && rewardTiers.length < projectParams.rewardsLimit && isHashUnique(_hash));
+        require(!paused, "Paused");
+        require(rewardTiers.length < projectParams.rewardsLimit, "Limit");
+        require(isHashUnique(_hash), "Duplicate");
         rewardTiers.push(Utils.RewardTier(_hash, _investment, _supply, address(0)));
         IProjectFactory(addrProjectFactory).emitProjectRewardTierAdded(_hash);
     }
@@ -137,7 +152,7 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
     }
 
     // User invests in specified reward tier
-    function invest (uint256 tierIndex) external {
+    function invest (uint256 tierIndex) external nonReentrant {
         isInvestor();
         isState(Utils.State.Ongoing);
         require(!paused && !fundingExpired(), "Paused or expired");
@@ -150,49 +165,21 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
     }
 
     // Creator withdraws succesful project funds to wallet
-    function withdraw() external onlyRole(addrParams.creator) nonReentrant{
-        address _fundToken = addrParams.fundingTokenAddress;
+    function withdraw() external onlyRole(addrParams.creator) nonReentrant {
         IERC20 _fundingTokenContract = fundingTokenContract;
         uint256 balance = _fundingTokenContract.balanceOf(address(this));
         require(!paused && balance >= projectParams.goal);
         uint256 insuranceAmount = balance * projectParams.insurance / 1e18;
-        if(dptAddressesSet()){
-            uint256 feeDptAmount = Utils.dptOracleQuote(balance, projectParams.projectWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken);
-            //Use creator's staked dpt first to pay for fees
-            uint256 creatorStake = stakes[addrParams.creator];
-            if(creatorStake > 0){
-                if(creatorStake >= feeDptAmount){
-                    stakes[addrParams.creator] -= feeDptAmount;
-                    totalStaked -= feeDptAmount;
-                    IERC20(addrParams.dptTokenAddress).safeTransferFrom(address(this), addrParams.reviewer, feeDptAmount);
-                } else {
-                    uint256 dptShortage =  feeDptAmount - creatorStake;
-                    stakes[addrParams.creator] -= creatorStake;
-                    totalStaked -= creatorStake;
-                    IERC20(addrParams.dptTokenAddress).safeTransferFrom(address(this), addrParams.reviewer, creatorStake);
-                    IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, addrParams.reviewer, dptShortage);
-                }
-            } else {
-                IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, addrParams.reviewer, feeDptAmount);
-            }
 
-            creatorStake = stakes[addrParams.creator];
-            uint256 stakingRewardAmount = Utils.dptOracleQuote(balance, projectParams.projectStakingReward, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken);
-            //If any remaining dpt staked "pay" the staking reward with them
-            if(creatorStake > 0){
-                if(creatorStake >= stakingRewardAmount){
-                    stakes[addrParams.creator] -= stakingRewardAmount;
-                    totalStaked -= stakingRewardAmount;
-                    //No need to transfer
-                } else {
-                    uint256 dptShortage =  stakingRewardAmount - creatorStake;
-                    stakes[addrParams.creator] -= creatorStake;
-                    totalStaked -= creatorStake;
-                    IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, address(this), dptShortage);
-                }
-            } else {
-                IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, address(this), stakingRewardAmount);
+        if(dptAddressesSet()){
+            uint stakeAmount = stakes[msg.sender];
+            if(stakeAmount > 0){
+                stakes[msg.sender] = 0;
+                IERC20(addrParams.dptTokenAddress).safeTransferFrom(address(this), msg.sender, stakeAmount);
+                totalStaked -= stakeAmount;
             }
+            IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, addrParams.reviewer, getWithdrawalFee());
+            IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, address(this), getStakingRewards());
         }
         //Project's funds
         _fundingTokenContract.safeTransfer(msg.sender, balance - insuranceAmount);

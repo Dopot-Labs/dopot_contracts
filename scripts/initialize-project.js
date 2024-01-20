@@ -3,7 +3,6 @@ npx hardhat run --network mumbai scripts/initialize-project.js
 */
 const { ethers, upgrades } = require("hardhat");
 
-
 async function main() {
   const [deployer] = await ethers.getSigners();
   //console.log("Initializing project with the account:", deployer.address);
@@ -24,11 +23,14 @@ async function main() {
   let projectaddr = projectCreatedEvent.args["project"];
   console.log("Project Address: " + projectaddr);       */  
   try{                        
-  const projectaddr = "0x30E1A94137E3DdBAa791F58e68DcE7B3C3e17bE2";
+  const projectaddr = "0x7DF2d1146b1B85D2EaAF52C0676c140Ff33437f3";
   const Project = await ethers.getContractFactory("Project", { libraries: {  Utils: "0x080c64680c9F67394a60313257b8aedD0ccE8cDF" } });
   const project = await Project.attach(projectaddr); //projectaddr
   //const res = await project.connect(deployer).addRewardTier("bafkreihkplf2i3crflruenv4e5rnoqy6s7mrmddf7xcvzfsb7iihsgnjre", investment, amountTokens);
+  //const res = await project.connect(deployer).stakes("0xd52b78D9ba494e5bdCc874dc3C369F2735e24FB3");console.log(res.toString())
   const res = await project.connect(deployer).changeState(2);
+  //console.log(await project.connect(deployer).addrParams());
+  //const res = await project.connect(deployer).setAddrParam("0xdf5e77cB650DA50c0fe5C8A162DfD4F36C1B5Ec2", "0x2f200714093CC4eBC7Bfc15EB1CE4dAf9F925219", "0xDC9CB9cad99B058307D0e7098467820CCcEdDf8A", "0x2A33D7FcdCde0D7A82b2D470d0D9eDb21400Aa11", "0x340cb0AA007F2ECbF6fCe3cd8929a22429893213");
   } catch (e) {
     console.log(e);
   }

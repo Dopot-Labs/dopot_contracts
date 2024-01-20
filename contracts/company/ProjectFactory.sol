@@ -14,17 +14,12 @@ contract ProjectFactory is Ownable, Initializable {
     using SafeERC20 for IERC20;
     IDopotReward dopotRewardContract;
     
-    address public projectImplementation;
-    uint256 public projectImplementationVersion = 1;
+    address immutable public projectImplementation;
     address epnsContractAddress;
     address epnsChannelAddress;
-    struct ProjectVersion {
-        address projectAddress;
-        uint256 version;
-    }
-    ProjectVersion[] public projectsVersions;
+    address[] public projects;
     function getProjectsLength() external view returns (uint256) {
-        return projectsVersions.length;
+        return projects.length;
     }
 
     event ProjectCreated(address indexed creator, address indexed project);
@@ -49,8 +44,8 @@ contract ProjectFactory is Ownable, Initializable {
     error FundraisingValueError();
     modifier isProject(address _addr){
         bool found = false;
-        for (uint i = 0; i < projectsVersions.length; i++) {
-            if (projectsVersions[i].projectAddress == _addr) {
+        for (uint i = 0; i < projects.length; i++) {
+            if (projects[i] == _addr) {
                 found = true;
                 break;
             }
@@ -69,10 +64,6 @@ contract ProjectFactory is Ownable, Initializable {
     }
     function emitChangedState(Utils.State newState) external isProject(msg.sender){
         emit ChangedState(newState, msg.sender);
-    }
-    function setProjectImplementationAddress(address _projectImplementation) external onlyOwner {
-        projectImplementation = _projectImplementation;
-        projectImplementationVersion ++;
     }
     function setRewardContract(address _rewardContract) external onlyOwner{
         dopotRewardContract = IDopotReward(_rewardContract);
@@ -125,7 +116,7 @@ contract ProjectFactory is Ownable, Initializable {
         dopotRewardContract.whitelistProject(projectClone);
         addrParams.creator = msg.sender;
         Project(projectClone).initialize(msg.sender, addrParams, fundRaisingDeadline, projectParams);
-        projectsVersions.push( ProjectVersion(projectClone, projectImplementationVersion) );
+        projects.push(projectClone);
         emit ProjectCreated(msg.sender, projectClone);
         return projectClone;
     }
