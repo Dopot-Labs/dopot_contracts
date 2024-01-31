@@ -3,8 +3,10 @@ pragma solidity ^0.8.14;
 import "./external/Seriality/BytesToTypes.sol";
 import "./external/Seriality/TypesToBytes.sol";
 import "./external/Seriality/SizeOf.sol";
-import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {OracleLibrary} from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 library Utils{
     string constant projectUpdateMsg = "Project update";
@@ -43,18 +45,6 @@ library Utils{
         uint256 supply;
         address projectaddress;
     }
-
-    function dptOracleQuote(uint256 _amount, uint256 _fee, address _dptTokenAddress, address _dptUniPoolAddress, address _fundingTokenAddress) public view returns (uint256 quoteAmount){
-        //secondsAgo: 60 * 60 * 24 (24h)
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = 60 * 60 * 24;
-        secondsAgos[1] = 0;
-        (int56[] memory tickCumulatives,) = IUniswapV3Pool(_dptUniPoolAddress).observe(secondsAgos);
-        int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
-        int24 tick = int24(tickCumulativesDelta / int56(uint56(60 * 60 * 24)));
-        if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(uint56(60 * 60 * 24)) != 0)) tick--;
-        quoteAmount = OracleLibrary.getQuoteAtTick(tick, uint128(_amount *  _fee  / 1e18), _fundingTokenAddress, _dptTokenAddress);
-    }
     
     function rewardTierToBytes(RewardTier memory r) pure public returns (bytes memory data) {  
         uint256 sizeUint = SizeOf.sizeOfUint(256);
@@ -88,5 +78,36 @@ library Utils{
     }
     function isDeadlineRange(uint256 _deadline) pure internal returns(bool){
         return (_deadline == 45 days || _deadline == 65 days || _deadline == 90 days);
+    }
+
+    uint256 constant oracleDecimals = 1e18;
+     function estimateAmountOut(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address pool,
+        uint32 secondsAgo
+    ) public view returns (uint256) {
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = secondsAgo;
+        secondsAgos[1] = 0;
+        (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(
+            secondsAgos
+        );
+        int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
+        int24 tick = int24(tickCumulativesDelta / int32(secondsAgo));
+        if (
+            tickCumulativesDelta < 0 && (tickCumulativesDelta % int32(secondsAgo) != 0)
+        ) {
+            tick--;
+        }
+        uint256 amountOut = OracleLibrary.getQuoteAtTick(
+            tick,
+            uint128(amountIn / oracleDecimals),
+            tokenIn,
+            tokenOut
+        );
+        amountOut *= oracleDecimals;
+        return amountOut;
     }
 }

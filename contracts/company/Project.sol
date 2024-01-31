@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+
 interface IProjectFactory {
     function emitProjectRewardTierAdded(string calldata _hash) external;
     function emitProjectInvested(address investor, uint tokenId) external;
@@ -36,6 +38,7 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
     Utils.State public state;
     mapping(address => uint) public stakes;
     uint public totalStaked;
+    uint32 constant twapInterval = 60*60*24;
 
     function isState(Utils.State _state) internal view {
         require(state == _state, "Incorrect State");
@@ -46,17 +49,13 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
     }
 
     function getWithdrawalFee() public view returns (uint256) {
-        address _fundToken = addrParams.fundingTokenAddress;
-        IERC20 _fundingTokenContract = fundingTokenContract;
-        uint256 balance = _fundingTokenContract.balanceOf(address(this));
-        return Utils.dptOracleQuote(balance, projectParams.projectWithdrawalFee, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken);
+        uint256 balance = fundingTokenContract.balanceOf(address(this));
+        return Utils.estimateAmountOut(addrParams.fundingTokenAddress, addrParams.dptTokenAddress, (balance  *  projectParams.projectWithdrawalFee  / 1e18), addrParams.dptUniPoolAddress, twapInterval);
     }
 
     function getStakingRewards() public view returns (uint256) {
-        address _fundToken = addrParams.fundingTokenAddress;
-        IERC20 _fundingTokenContract = fundingTokenContract;
-        uint256 balance = _fundingTokenContract.balanceOf(address(this));
-        return Utils.dptOracleQuote(balance, projectParams.projectStakingReward, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _fundToken);
+        uint256 balance = fundingTokenContract.balanceOf(address(this));
+        return Utils.estimateAmountOut(addrParams.fundingTokenAddress, addrParams.dptTokenAddress, (balance  *  projectParams.projectStakingReward  / 1e18),  addrParams.dptUniPoolAddress, twapInterval);
     }
 
     function stake(uint amount) external nonReentrant {
@@ -79,10 +78,10 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
             uint256 dptBalance = IERC20(addrParams.dptTokenAddress).balanceOf(address(this)); //Includes staking rewards
             uint256 creatorStake = stakes[addrParams.creator];
             //User's staking reward
-            stakeAmount += stakeAmount * ((dptBalance - creatorStake) / (totalStaked - creatorStake));
+            IERC20(addrParams.dptTokenAddress).safeTransfer(msg.sender, stakeAmount * ((dptBalance - totalStaked - creatorStake) / (totalStaked - creatorStake)));
         }
+        IERC20(addrParams.dptTokenAddress).safeTransfer(msg.sender, stakeAmount);
         stakes[msg.sender] = 0;
-        IERC20(addrParams.dptTokenAddress).safeTransferFrom(address(this), msg.sender, stakeAmount);
         totalStaked -= stakeAmount;
     }
 
@@ -147,7 +146,8 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
         uint256 fundingTokenBalance = fundingTokenContract.balanceOf(address(this));
         require(!paused && fundingTokenBalance >= (projectParams.goal  *  projectParams.postponeThreshold / 1e18));
         if(dptAddressesSet())
-            IERC20(_dptTokenAddress).safeTransferFrom(msg.sender, addrParams.reviewer, Utils.dptOracleQuote(projectParams.goal - fundingTokenBalance, projectParams.postponeFee, _dptTokenAddress, addrParams.dptUniPoolAddress, addrParams.fundingTokenAddress));
+            IERC20(_dptTokenAddress).safeTransferFrom(msg.sender, addrParams.reviewer, Utils.estimateAmountOut(
+                addrParams.fundingTokenAddress, addrParams.dptTokenAddress, (projectParams.goal - fundingTokenBalance)  *  projectParams.postponeFee  / 1e18, addrParams.dptUniPoolAddress, twapInterval));
         fundRaisingDeadline += projectParams.postponeAmount;
     }
 
@@ -166,8 +166,7 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
 
     // Creator withdraws succesful project funds to wallet
     function withdraw() external onlyRole(addrParams.creator) nonReentrant {
-        IERC20 _fundingTokenContract = fundingTokenContract;
-        uint256 balance = _fundingTokenContract.balanceOf(address(this));
+        uint256 balance = fundingTokenContract.balanceOf(address(this));
         require(!paused && balance >= projectParams.goal);
         uint256 insuranceAmount = balance * projectParams.insurance / 1e18;
 
@@ -175,16 +174,16 @@ contract Project is Initializable, Ownable, ReentrancyGuard {
             uint stakeAmount = stakes[msg.sender];
             if(stakeAmount > 0){
                 stakes[msg.sender] = 0;
-                IERC20(addrParams.dptTokenAddress).safeTransferFrom(address(this), msg.sender, stakeAmount);
+                IERC20(addrParams.dptTokenAddress).safeTransfer(msg.sender, stakeAmount);
                 totalStaked -= stakeAmount;
             }
             IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, addrParams.reviewer, getWithdrawalFee());
             IERC20(addrParams.dptTokenAddress).safeTransferFrom(msg.sender, address(this), getStakingRewards());
         }
         //Project's funds
-        _fundingTokenContract.safeTransfer(msg.sender, balance - insuranceAmount);
+        fundingTokenContract.safeTransfer(msg.sender, balance - insuranceAmount);
         //Insurance
-        _fundingTokenContract.safeTransfer(addrProjectFactory, insuranceAmount);
+        fundingTokenContract.safeTransfer(addrProjectFactory, insuranceAmount);
         state = Utils.State.Successful;
         IProjectFactory(addrProjectFactory).emitChangedState(state);
     }

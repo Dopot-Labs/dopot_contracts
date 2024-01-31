@@ -13,7 +13,7 @@ interface IPUSHCommInterface {
 contract ProjectFactory is Ownable, Initializable {
     using SafeERC20 for IERC20;
     IDopotReward dopotRewardContract;
-    
+
     address immutable public projectImplementation;
     address epnsContractAddress;
     address epnsChannelAddress;
@@ -109,6 +109,7 @@ contract ProjectFactory is Ownable, Initializable {
         uint256 totalAmount = currentPeriodAmount + 1;
         require(totalAmount >= currentPeriodAmount, 'overflow');
         require(currentPeriodAmount < projectParams.projectLimit, 'Project limit reached for this period');
+        require(goal >= 100 * (10**18), "Min goal is 100 DAI");
         if(fundRaisingDeadline != 45 days && fundRaisingDeadline != 65 days && fundRaisingDeadline != 90 days) revert FundraisingValueError();
         currentPeriodAmount += 1;
         projectParams.goal = goal;
