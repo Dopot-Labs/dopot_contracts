@@ -7,6 +7,7 @@ require('hardhat-contract-sizer');
 require('dotenv').config()
 
 const blockscanAPIkey = process.env.blockscanAPIkey;
+const arbiscanAPIkey = process.env.arbiscanAPIkey;
 const alchemyAPIkey = process.env.ALCHEMY_API_KEY;
 const privateKey = process.env.PRIVATE_KEY;
 /**
@@ -21,10 +22,10 @@ module.exports = {
   },
   optimizer: {
     enabled: true,
-    runs: 1//10000
+    runs: 10//10000 TODO: change to higher value
   },
   etherscan: {
-    apiKey: blockscanAPIkey
+    apiKey: arbiscanAPIkey
   },
   networks: {
     rinkeby: {
@@ -51,6 +52,13 @@ module.exports = {
       url: `https://polygon-mumbai.g.alchemy.com/v2/${process.env.MUMBAI_ALCHEMY_API_KEY}`,
       accounts:   [`0x${privateKey}`],
       gas: 6000000
+    },
+    arbitrum: {
+      url: `https://arbitrum.llamarpc.com`,
+      accounts:   [`0x${privateKey}`]
     }
   },
+  sourcify: {
+    enabled: true
+  }
 };

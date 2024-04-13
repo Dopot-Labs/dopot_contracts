@@ -14,13 +14,14 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
-  /*
+  
   const Token = await ethers.getContractFactory("Dopot");
   const token = await Token.deploy();
   await token.deployed();
   const deployerBalance = await token.callStatic.balanceOf(deployer.address);
   console.log("Dopot deployed to:", token.address);
-  */
+  console.log("Dopot deployerBalance: " + deployerBalance);
+  return;
   const Utils = await ethers.getContractFactory("Utils");
   const utils = await Utils.deploy();
   await utils.deployed();

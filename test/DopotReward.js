@@ -16,7 +16,11 @@ const fundingTokenAbi = require("./abi/fundingToken.json");
   describe("DopotReward deploy", async () => {
 
     beforeEach(async () => {
-      const RewardFactory = await ethers.getContractFactory("DopotReward");
+      const Utils = await ethers.getContractFactory("Utils");
+      const utils = await Utils.deploy();
+      await utils.deployed();
+      
+      const RewardFactory = await ethers.getContractFactory("DopotReward", { libraries: {  Utils: utils.address }  });
       const reward = await RewardFactory.deploy("0x3355FA97cEa19F6c11Eee2559AA01E188472f737");
       await reward.deployed();
 
