@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.14;
 
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -13,11 +13,13 @@ import "@openzeppelin/contracts/interfaces/IERC5267.sol";
 /// @custom:security-contact info@dopot.fi
 contract Dopot is ERC20Permit, ERC20Votes, ERC165, Ownable {
 
+    // Modifier to check if destination address is not this contract
     modifier validDestination( address to ) {
         require(to != address(this) );
         _;
     }
 
+    // Dopot constructor
      constructor()
         ERC20("Dopot", "DPT")
         ERC20Permit("Dopot")
@@ -25,6 +27,20 @@ contract Dopot is ERC20Permit, ERC20Votes, ERC165, Ownable {
     {
         _mint(msg.sender, 120000000 * 10 ** decimals());
     }
+
+
+    // Support for metadata, gas-efficient transfers, voting, multi-interfaces
+    function supportsInterface(
+        bytes4 _interfaceId
+    ) public view virtual override returns (bool) {
+        return
+            _interfaceId == type(IERC20).interfaceId ||
+            _interfaceId == type(IERC20Metadata).interfaceId ||
+            _interfaceId == type(IERC5267).interfaceId ||
+            _interfaceId == type(IVotes).interfaceId ||
+            ERC165.supportsInterface(_interfaceId);
+    }
+
 
     // The following functions are overrides required by Solidity.
 
@@ -59,16 +75,5 @@ contract Dopot is ERC20Permit, ERC20Votes, ERC165, Ownable {
         override(ERC20, ERC20Votes)
     {
         super._burn(account, amount);
-    }
-
-    function supportsInterface(
-        bytes4 _interfaceId
-    ) public view virtual override returns (bool) {
-        return
-            _interfaceId == type(IERC20).interfaceId ||
-            _interfaceId == type(IERC20Metadata).interfaceId ||
-            _interfaceId == type(IERC5267).interfaceId ||
-            _interfaceId == type(IVotes).interfaceId ||
-            ERC165.supportsInterface(_interfaceId);
     }
 }

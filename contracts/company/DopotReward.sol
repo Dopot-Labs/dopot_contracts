@@ -14,9 +14,9 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     Counters.Counter private _tokenIds;
     mapping(address => mapping(string => uint256)) public currentSupplyByProjectAndURI;
 
-    mapping (uint256 => string) private _tokenURIs;
-    mapping (uint256 => Utils.RewardTier) public rewardData;
-    mapping (address => bool) projectWhitelist;
+    mapping (uint256 => string) private _tokenURIs;             // All tokens URIs
+    mapping (uint256 => Utils.RewardTier) public rewardData;    // Store a reward tier's data
+    mapping (address => bool) projectWhitelist;                 // List of projects allowed to mint/burn
 
     event RewardMinted(address to, uint256 indexed id, Utils.RewardTier);
     event PermanentURI(string _value, uint256 indexed _id);
@@ -26,14 +26,17 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         return rewardData[id];
     }
 
+    // DopotReward constructor
     constructor(address _projectFactoryContract) ERC1155("ar://{id}") {
         transferOwnership(_projectFactoryContract);
     }
 
+    // Whitelist a project so it can mint and burn tokens
     function whitelistProject(address project) external onlyOwner{
         projectWhitelist[project] = true;
     }
 
+    // Mint a DopotReward token
     function mintToken(address to, string memory tokenURI, bytes memory rewardTier) public returns(uint256) { 
         require(projectWhitelist[msg.sender] == true, "Project not whitelisted");
         uint256 newItemId = _tokenIds.current(); 
@@ -47,6 +50,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         return newItemId; 
     } 
 
+    // Returns the token's arweave URI
     function uri(uint256 _tokenID) override public view returns (string memory) {
         return string(
             abi.encodePacked(
@@ -54,10 +58,17 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
             _tokenURIs[_tokenID])
         );
     }
+
+    // Private function to set a token's URI
     function _setTokenUri(uint256 tokenId, string memory tokenURI) private {
          _tokenURIs[tokenId] = tokenURI; 
     }
     
+    // Get supply of token by project address and specific URI
+    function getTotalSupplyByProjectAndTokenURI(address projectAddress, string memory tokenURI) public view returns (uint256) {
+        return currentSupplyByProjectAndURI[projectAddress][tokenURI];
+    }
+
     // The following functions are overrides required by Solidity.
     function mint(address account, uint256 id, uint256 amount, bytes memory data) private {
         Utils.RewardTier memory d = Utils.bytesToRewardTier(data);
@@ -82,9 +93,5 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     }
     function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal override(ERC1155, ERC1155Supply) {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
-    }
-
-    function getTotalSupplyByProjectAndTokenURI(address projectAddress, string memory tokenURI) public view returns (uint256) {
-        return currentSupplyByProjectAndURI[projectAddress][tokenURI];
     }
 }

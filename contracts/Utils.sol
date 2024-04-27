@@ -9,8 +9,9 @@ import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 library Utils{
-    string constant projectUpdateMsg = "Project update";
-
+    string constant projectUpdateMsg = "Project update"; // Constant title for project updates PUSH notifications
+    
+    // All project's possible states
     enum State {
         PendingApproval,
         Rejected,
@@ -19,6 +20,8 @@ library Utils{
         Expired,
         Cancelled
     }
+    
+    // Addresses passed as parameters at project creation
     struct AddrParams {
         address fundingTokenAddress;
         address dopotRewardAddress;
@@ -27,6 +30,8 @@ library Utils{
         address creator;
         address reviewer;
     }
+
+    // Misc. parameters passed at project creation
     struct ProjectParams {
         uint256 goal;
         uint256 rewardsLimit;
@@ -39,6 +44,8 @@ library Utils{
         uint256 postponeThreshold;
         uint256 period;  // how many blocks before limit resets
     }
+
+    // Project reward's data
     struct RewardTier {
         string hash;
         uint256 investment;
@@ -46,6 +53,7 @@ library Utils{
         address projectaddress;
     }
     
+    // Convert RewardTier struct data to bytes
     function rewardTierToBytes(RewardTier memory r) pure public returns (bytes memory data) {  
         uint256 sizeUint = SizeOf.sizeOfUint(256);
         uint256 sizeOfHash = SizeOf.sizeOfString(r.hash);
@@ -62,6 +70,8 @@ library Utils{
         TypesToBytes.addressToBytes(offset, r.projectaddress, data);
         offset -= 20;
     }
+
+    // Convert bytes to RewardTier struct data
     function bytesToRewardTier(bytes memory data) pure public returns (RewardTier memory r) {
         uint256 offset = 244;
         uint256 sizeUint = SizeOf.sizeOfUint(256);
@@ -76,11 +86,15 @@ library Utils{
         r.projectaddress = BytesToTypes.bytesToAddress(offset, data);
         offset -= 20;
     }
+
+    // Check if deadline range is acceptable values
     function isDeadlineRange(uint256 _deadline) pure internal returns(bool){
         return (_deadline == 45 days || _deadline == 65 days || _deadline == 90 days);
     }
 
-    uint256 constant oracleDecimals = 1e18;
+    uint256 constant oracleDecimals = 1e18; // 18 decimals token for oracle
+
+    // Oracle function to get price estimate for tokens
      function estimateAmountOut(
         address tokenIn,
         address tokenOut,
