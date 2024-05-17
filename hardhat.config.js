@@ -14,15 +14,25 @@ const privateKey = process.env.PRIVATE_KEY;
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.14",
+  solidity: {
+    version: "0.8.20",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 10000
+      }
+    }
+  },
   gasReporter: {
     currency: 'EUR',
+    L2: "arbitrum",
+    L2Etherscan: arbiscanAPIkey,
     enabled: true,
-    gasPrice: 10000000000
-  },
-  optimizer: {
-    enabled: true,
-    runs: 10//10000 TODO: change to higher value
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+
+    reportFormat: "markdown",
+    forceTerminalOutput: true,
+    forceTerminalOutputFormat: "terminal",
   },
   etherscan: {
     apiKey: arbiscanAPIkey

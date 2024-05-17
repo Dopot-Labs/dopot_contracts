@@ -40,7 +40,7 @@ contract ProjectFactory is Ownable, Initializable {
     event RewardContractSet(address rewardContract);
     event EpnsAddressSet(address epnsContractAddress, address epnsChannelAddress);
     event ProjectParamsSet(uint256 period, uint256 projectLimit, uint256 _rewardsLimit, uint256 postponeAmount, uint256 postponeFee, uint256 postponeThreshold, uint256 insurance, uint256 projectWithdrawalFee, uint256 projectStakingReward);
-    event AddrParamSet(address fundingTokenAddress, address dopotRewardAddress, address dptTokenAddress, address dptUniPoolAddress, address reviewer);
+    event AddrParamSet(address fundingTokenAddress, address dptTokenAddress, address dptUniPoolAddress, address reviewer);
 
     uint256 internal currentPeriodEnd; // block which the current period ends at
     uint256 public currentPeriodAmount; // amount of projects already created this period
@@ -54,7 +54,7 @@ contract ProjectFactory is Ownable, Initializable {
     1/100 * 1e18,   // projectStakingReward
     1/100 * 1e18,   // insurance
     51/100 * 1e18,  // postponeThreshold
-    39272);         // Polygon blocks per day TODO: change to arbitrum one
+    337510);         // Arbitrum blocks per day
     
     uint256 constant maxFee = 10/100 * 1e18; // max limit for fees
     error FundraisingValueError();
@@ -128,7 +128,7 @@ contract ProjectFactory is Ownable, Initializable {
 
     // Set the factory's project parameters
     function setProjectParams(uint256 _period, uint256 _projectLimit, uint256 _rewardsLimit, uint256 _postponeAmount, uint256 _postponeFee,  uint256 _postponeThreshold, uint256 _insurance, uint256 _projectWithdrawalFee, uint256 _projectStakingReward) external onlyOwner {
-        require(_projectWithdrawalFee <= maxFee && _postponeFee <= maxFee, "Fee too high");
+        require(_projectWithdrawalFee <= maxFee && _postponeFee <= maxFee && _insurance <= maxFee, "Fee too high");
         projectParams.period = _period;
         projectParams.projectLimit = _projectLimit;
         projectParams.projectWithdrawalFee = _projectWithdrawalFee;
@@ -142,14 +142,12 @@ contract ProjectFactory is Ownable, Initializable {
     }
 
     // Set the factory's address parameters
-    function setAddrParam(address _fundingTokenAddress, address _dopotRewardAddress, address _dptTokenAddress, address _dptUniPoolAddress, address _reviewer) external onlyOwner {
-        require(addrParams.fundingTokenAddress == address(0), "fundingTokenAddress was already set once");
-        addrParams.fundingTokenAddress = _fundingTokenAddress;
-        addrParams.dopotRewardAddress = _dopotRewardAddress;
-        addrParams.dptTokenAddress = _dptTokenAddress;
-        addrParams.dptUniPoolAddress = _dptUniPoolAddress;
+    function setAddrParam(address _fundingTokenAddress, address _dptTokenAddress, address _dptUniPoolAddress, address _reviewer) external onlyOwner {
+        if(addrParams.fundingTokenAddress == address(0)) addrParams.fundingTokenAddress = _fundingTokenAddress;
+        if(addrParams.dptTokenAddress == address(0)) addrParams.dptTokenAddress = _dptTokenAddress;
+        if(addrParams.dptUniPoolAddress == address(0)) addrParams.dptUniPoolAddress = _dptUniPoolAddress;
         addrParams.reviewer = _reviewer;
-        emit AddrParamSet(_fundingTokenAddress, _dopotRewardAddress, _dptTokenAddress, _dptUniPoolAddress, _reviewer);
+        emit AddrParamSet(addrParams.fundingTokenAddress, addrParams.dptTokenAddress, addrParams.dptUniPoolAddress, _reviewer);
     }
     
     // Factory constructor
@@ -160,8 +158,8 @@ contract ProjectFactory is Ownable, Initializable {
         addrParams.fundingTokenAddress = _fundingTokenAddress;
         addrParams.dptUniPoolAddress = _dptUniPoolAddress;
         addrParams.reviewer = msg.sender;
-        epnsContractAddress = 0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa; // mumbai TODO: change to arbitrum one
-        epnsChannelAddress = 0x340cb0AA007F2ECbF6fCe3cd8929a22429893213; // TODO: create and change to arbitrum one
+        epnsContractAddress = 0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa;
+        epnsChannelAddress = 0x63381E4b8fE26cb1f55cc38e8369990594E017b1; // TODO: create and change to arbitrum one
     }
 
     // Create a new project
