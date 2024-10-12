@@ -27,7 +27,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     }
 
     // DopotReward constructor
-    constructor(address _projectFactoryContract) ERC1155("ar://{id}") {
+    constructor(address _projectFactoryContract) ERC1155("ipfs://{id}") {
         transferOwnership(_projectFactoryContract);
     }
 
@@ -54,7 +54,7 @@ contract DopotReward is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     function uri(uint256 _tokenID) override public view returns (string memory) {
         return string(
             abi.encodePacked(
-            "ar://",
+            "ipfs://",
             _tokenURIs[_tokenID])
         );
     }

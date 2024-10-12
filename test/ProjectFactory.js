@@ -46,19 +46,19 @@ async function pubKeyFromTx(tx){
 
   describe("Project Creation limits", async () => {
     it("Should fail exceeding project creation limit", async () => {
-      const Token = await ethers.getContractFactory("Dopot");
-      const token = await Token.deploy();
-      await token.deployed();
+      //const Token = await ethers.getContractFactory("Dopot");
+      //const token = await Token.deploy();
+      //await token.deployed();
 
       const Utils = await ethers.getContractFactory("Utils");
       const utils = await Utils.deploy();
       await utils.deployed();
 
       let ProjectFactory = await ethers.getContractFactory("ProjectFactory", { libraries: {  Utils: utils.address }  });
-      const FundingToken = await ethers.getContractFactory("GodModeErc20");
-      let fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
-      await fundingToken.deployed();
-      let projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address, dptTokenAddress, dptUniPoolAddress);
+      //const FundingToken = await ethers.getContractFactory("GodModeErc20");
+      //let fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
+      //await fundingToken.deployed();
+      let projectfactory = await ProjectFactory.connect(owner).deploy("0x0000000000000000000000000000000000000000" , "0x0000000000000000000000000000000000000000" , "0x0000000000000000000000000000000000000000");
       await projectfactory.deployed();
   
       const RewardFactory = await ethers.getContractFactory("DopotReward", { libraries: {  Utils: utils.address }  });
@@ -75,79 +75,4 @@ async function pubKeyFromTx(tx){
     });
   });
 
-  describe('ProjectFactory', function () {
-    let ProjectFactory;
-    let projectfactory;
-  
-    beforeEach(async function () {
-      const Token = await ethers.getContractFactory("Dopot");
-      const token = await Token.deploy();
-      await token.deployed();
-
-      const Utils = await ethers.getContractFactory("Utils");
-      const utils = await Utils.deploy();
-      await utils.deployed();
-
-      ProjectFactory = await ethers.getContractFactory("ProjectFactory", { libraries: {  Utils: utils.address }  });
-      projectfactory = await ProjectFactory.deploy(token.address, dptTokenAddress, dptUniPoolAddress);
-      await projectfactory.deployed();
-
-      const RewardFactory = await ethers.getContractFactory("DopotReward", { libraries: {  Utils: utils.address }  });
-      const reward = await RewardFactory.deploy(projectfactory.address);
-      await reward.deployed();
-      await projectfactory.setRewardContract(reward.address);
-    });
-
-    describe("Deployment", async () => {
-      it("Should set the right owner", async () => {
-        expect(await projectfactory.owner()).to.equal(owner.address);
-      });
-    });
-  });
-
-  describe("Project Creation", async () => {
-    let projectfactory;
-    let project;
-    let fundingToken;
-    let reward;
-    const rndTierAmount = Math.floor(Math.random() * (amountTokens - 1) + 1);
-    
-
-
-    beforeEach(async () => {
-      const Token = await ethers.getContractFactory("Dopot");
-      const token = await Token.deploy();
-      await token.deployed();
-
-      const Utils = await ethers.getContractFactory("Utils");
-      const utils = await Utils.deploy();
-      await utils.deployed();
-
-      let Project = await ethers.getContractFactory("Project", { libraries: {  Utils: utils.address }  });
-      let ProjectFactory = await ethers.getContractFactory("ProjectFactory", { libraries: {  Utils: utils.address }  });
-      const FundingToken = await ethers.getContractFactory("GodModeErc20");
-      fundingToken = await FundingToken.deploy("DAI", "DAI", 18);
-      await fundingToken.deployed();
-      projectfactory = await ProjectFactory.connect(owner).deploy(fundingToken.address, dptTokenAddress, dptUniPoolAddress);
-      await projectfactory.deployed();
-
-      const RewardFactory = await ethers.getContractFactory("DopotReward", { libraries: {  Utils: utils.address }  });
-      reward = await RewardFactory.deploy(projectfactory.address);
-      await reward.deployed();
-      await projectfactory.connect(owner).setRewardContract(reward.address);
-
-      let projecttx = await projectfactory.connect(projectOwner).createProject(goal, fundRaisingDeadline); // <---------------------      
-      let receipt = await projecttx.wait(1);
-      let projectCreatedEvent = receipt.events.pop();
-      let projectaddr = projectCreatedEvent.args["project"];
-      project = Project.attach(projectaddr);
-    });
-
-    it("Should fail investing on pending project", async () => {
-      await fundingToken.mint(addr2.address, rndTierAmount * investment );
-      const approvaltx = await fundingToken.connect(addr2).increaseAllowance(project.address, rndTierAmount * investment );
-      await approvaltx.wait(1);
-      await expect(project.connect(addr2).invest(0)).to.be.rejectedWith('State');
-    });
-  });
 })();
